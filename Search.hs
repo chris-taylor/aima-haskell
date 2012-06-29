@@ -72,10 +72,10 @@ path n = case parent n of
 -- |Return a list of nodes reachable from this node in the context of the
 --  specified problem.
 expand :: (Problem p s a) => p s a -> Node s a -> [Node s a]
-expand p n = [ Node next (Just n) (Just act) (c act next) (depth n + 1) |
-                (act,next) <- successor p (state n) ]
+expand p node = [ mkNode a s | (a,s) <- successor p (state node) ]
     where
-        c act next = pathCost p (cost n) (state n) act next
+        mkNode  a s = Node s (Just node) (Just a) (getCost a s) (1 + depth node)
+        getCost a s = pathCost p (cost node) (state node) a s
 
 ----------------------------------
 -- Uninformed Search Algorithms --
