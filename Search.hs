@@ -6,11 +6,13 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.List as L
 import Data.Map (Map)
+import Data.Maybe (fromJust)
 import Data.Ord (comparing)
 import Data.Set (Set)
-import Data.Maybe (fromJust)
 
 import Queue
+import Graph (Graph)
+import qualified Graph as G
 
 -- |The type used to represent the cost associated with a particular path.
 type Cost = Double
@@ -182,9 +184,7 @@ bestFirstGraphSearch :: (Problem p s a, Ord s) => (Node s a -> Double) -> p s a 
 bestFirstGraphSearch f = graphSearch (PQueue [] f)
 
 aStarSearch :: (Problem p s a, Ord s) => (Node s a -> Double) -> p s a -> Maybe (Node s a)
-aStarSearch h = graphSearch (PQueue [] f)
-    where
-        f n = h n + cost n
+aStarSearch h = bestFirstGraphSearch (\n -> h n + cost n)
 
 -----------------------------
 -- Local Search Algorithms --
@@ -208,7 +208,11 @@ argMax xs f = fst $ L.maximumBy (comparing snd) $ zip xs (map f xs)
 -- A test problem --
 --------------------
 
-data WP s a = WP { initialWP :: s, goalWP :: s, charsWP :: [a], maxLen :: Int } deriving (Show)
+data WP s a = WP
+    { initialWP :: s
+    , goalWP :: s
+    , charsWP :: [a]
+    , maxLen :: Int } deriving (Show)
 
 instance Problem WP String Char where
     initial = initialWP
@@ -224,23 +228,30 @@ wp = WP { initialWP = "", goalWP = "abracad", charsWP = "abrcd" , maxLen = 11 }
 -- Graphs and Graph Problems --
 -------------------------------
 
-data Graph a = G { getGraph :: (Map a [(a,Cost)]) } deriving (Show)
+data GraphMap a = G
+    { getGraph     :: Graph a Cost
+    , getLocations :: Map a Point } deriving (Show)
 
-mkGraph :: Ord a => [(a,[(a,Cost)])] -> Graph a
-mkGraph = G . M.fromList
+type Point = (Double,Double)
 
-getNeighbors :: Ord a => a -> Graph a -> [(a,Cost)]
-getNeighbors a (G g) = case M.lookup a g of
+mkGraphMap :: (Ord a) => [(a,[(a,Cost)])] -> [(a,Point)] -> GraphMap a
+mkGraphMap conn loc = G (G.toUndirectedGraph conn) (M.fromList loc)
+
+getNeighbors :: Ord a => a -> GraphMap a -> [(a,Cost)]
+getNeighbors a (G g _) = G.getNeighbours a g
+
+getLocation :: Ord a => a -> GraphMap a -> Point
+getLocation a (G _ l) = case M.lookup a l of
     Nothing -> error "Vertex not found in graph!"
-    Just ls -> ls
+    Just pt -> pt
 
-costFromTo :: Ord a => Graph a -> a -> a -> Cost
+costFromTo :: Ord a => GraphMap a -> a -> a -> Cost
 costFromTo graph a b = case lookup b (getNeighbors a graph) of
     Nothing -> 1/0
     Just c  -> c
 
 data GraphProblem s a = GP
-    { graphGP :: Graph s
+    { graphGP :: GraphMap s
     , initGP :: s
     , goalGP :: s } deriving (Show)
 
@@ -250,12 +261,23 @@ instance Ord s => Problem GraphProblem s s where
     successor (GP g _ _) s = [ (x,x) | (x,_) <- getNeighbors s g ]
     costP (GP g _ _) c s _ s' = c + costFromTo g s s'
 
-testGraph :: Graph Char
-testGraph = mkGraph
+euclideanDist :: Point -> Point -> Double
+euclideanDist (x,y) (x',y') = sqrt $ (x-x')^2 + (y-y')^2
+
+mkHeuristic :: Ord s => GraphProblem s a -> Node s a -> Double
+mkHeuristic (GP g _ goal) node = euclideanDist x y
+    where
+        x = getLocation (state node) g
+        y = getLocation goal g
+
+testGraph :: GraphMap Char
+testGraph = mkGraphMap
+
     [ ('A', [('B',5), ('C',3)])
-    , ('B', [('A',5), ('D',6)])
-    , ('C', [('A',3), ('D',4)])
-    , ('D', [('B',6), ('C',4)]) ]
+    , ('B', [('D',6)])
+    , ('C', [('D',4)]) ]
+
+    [ ('A',(0,0)), ('B',(1,1)), ('C',(1,-1)), ('D',(2,0)) ]
 
 gp :: GraphProblem Char Char
 gp = GP { graphGP = testGraph, initGP = 'A', goalGP = 'D' }
