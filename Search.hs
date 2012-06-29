@@ -131,9 +131,6 @@ depthFirstGraphSearch = graphSearch []
 breadthFirstGraphSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
 breadthFirstGraphSearch = graphSearch (FifoQueue [])
 
-
-data DepthLimited a = Fail | Cutoff | Ok a deriving (Show)
-
 -- |Depth-first search with a depth limit. If the depth limit is reached we
 --  return 'Cutoff', otherwise return 'Fail' (if no solution is found) or 'Ok'
 --  (if a solution is found) which take the place of Nothing and Just in the
@@ -152,6 +149,8 @@ depthLimitedSearch lim prob = recursiveDLS (root $ initial prob) prob lim
                 filt cutoff (Ok node : _)    = Ok node
                 filt cutoff (Fail    : rest) = filt cutoff rest
                 filt cutoff (Cutoff  : rest) = filt True   rest
+
+data DepthLimited a = Fail | Cutoff | Ok a deriving (Show)
 
 -- |Repeatedly try depth-limited search with an increasing depth limit.
 iterativeDeepeningSearch :: (Problem p s a) => p s a -> Maybe (Node s a)
@@ -172,6 +171,11 @@ bestFirstTreeSearch f = treeSearch (PQueue [] f)
 bestFirstGraphSearch :: (Problem p s a, Ord s) => (Node s a -> Double) -> p s a -> Maybe (Node s a)
 bestFirstGraphSearch f = graphSearch (PQueue [] f)
 
+aStarSearch :: (Problem p s a, Ord s) => (Node s a -> Double) -> p s a -> Maybe (Node s a)
+aStarSearch h = graphSearch (PQueue [] f)
+    where
+        f n = h n + cost n
+
 --------------------
 -- A test problem --
 --------------------
@@ -181,7 +185,6 @@ data WP s a = WP { initialWP :: s, goalWP :: s, charsWP :: [a], maxLen :: Int } 
 instance Problem WP String Char where
     initial = initialWP
     goal = goalWP
-    --successor p s = [ (a, a:s) | a <- charsWP p ]
     successor p s = if length s == maxLen p
         then []
         else [ (a, a:s) | a <- charsWP p ]
