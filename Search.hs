@@ -4,7 +4,9 @@ module Search where
 
 import qualified Data.Map as M
 import qualified Data.Set as S
+import qualified Data.List as L
 import Data.Map (Map)
+import Data.Ord (comparing)
 import Data.Set (Set)
 import Data.Maybe (fromJust)
 
@@ -41,8 +43,14 @@ class Eq s => Problem p s a where
     --   from the first state, via the specified action. If the problem is such
     --   that the path doesn't matter, the function will only look at the second
     --   state. The default implementation costs 1 for every step in the path.
-    pathCost :: p s a -> Cost -> s -> a -> s -> Cost
-    pathCost _ c _ _ _ = c + 1
+    costP :: p s a -> Cost -> s -> a -> s -> Cost
+    costP _ c _ _ _ = c + 1
+
+    -- | For optimization problems, each state has a value. Hill-climbing and
+    --   related algorithms try to maximise this value. The default
+    --  implementation always returs Nothing.
+    valueP :: p s a -> s -> Maybe Double
+    valueP _ = const Nothing
 
 -- |A node in a search tree. It contains a reference to its parent (the node
 --  that this is a successor of) and to the state for this node. Note that if
@@ -53,17 +61,18 @@ data Node s a = Node { state  :: s
                      , parent :: Maybe (Node s a)
                      , action :: Maybe a
                      , cost   :: Cost
-                     , depth  :: Int }
+                     , depth  :: Int
+                     , value  :: Maybe Double }
 
 instance (Show s, Show a) => Show (Node s a) where
-    show (Node state _ action cost depth) =
+    show (Node state _ action cost depth _) =
         "Node(state=" ++ show state ++ ",action=" ++ show action ++ 
             ",cost=" ++ show cost ++ ",depth=" ++ show depth ++ ")"
 
 -- |A convenience constructor for root nodes (a node with no parent, no action
---  that leads to it, and zero cost and depth.)
-root :: s -> Node s a
-root s = Node s Nothing Nothing 0 0
+--  that leads to it, and zero cost.)
+root :: (Problem p s a) => p s a -> s -> Node s a
+root p s = Node s Nothing Nothing 0 0 (valueP p s)
 
 -- |Create a list of paths from the root node to the node specified.
 path :: Node s a -> [Node s a]
@@ -76,8 +85,9 @@ path n = case parent n of
 expand :: (Problem p s a) => p s a -> Node s a -> [Node s a]
 expand p node = [ mkNode a s | (a,s) <- successor p (state node) ]
     where
-        mkNode  a s = Node s (Just node) (Just a) (getCost a s) (1 + depth node)
-        getCost a s = pathCost p (cost node) (state node) a s
+        mkNode a s = Node s (Just node) (Just a) (c a s) (1 + depth node) v
+        c      a s = costP p (cost node) (state node) a s
+        v          = valueP p (state node)
 
 ----------------------------------
 -- Uninformed Search Algorithms --
@@ -87,14 +97,14 @@ expand p node = [ mkNode a s | (a,s) <- successor p (state node) ]
 --  @fringe@ should be an empty queue. We don't worry about repeated paths
 --  to a state.
 treeSearch :: (Problem p s a, Queue q) => q (Node s a) -> p s a -> Maybe (Node s a)
-treeSearch q problem = go problem (root (initial problem) `push` q)
+treeSearch q prob = go prob (root prob (initial prob) `push` q)
     where
         go p fringe = if empty fringe
             then Nothing
             else let (node, rest) = pop fringe
                  in if goalTest p (state node)
                     then Just node
-                    else go p (expand problem node `extend` rest)
+                    else go p (expand prob node `extend` rest)
 
 -- |Search the deepest nodes in the search tree first.
 depthFirstTreeSearch :: (Problem p s a) => p s a -> Maybe (Node s a)
@@ -108,7 +118,7 @@ breadthFirstTreeSearch = treeSearch (FifoQueue [])
 --  @fringe@ should be an empty queue. If two paths reach the same state, use
 --  only the best one.
 graphSearch :: (Problem p s a, Queue q, Ord s) => q (Node s a) -> p s a -> Maybe (Node s a)
-graphSearch q prob = go prob (root (initial prob) `push` q) S.empty
+graphSearch q prob = go prob (root prob (initial prob) `push` q) S.empty
     where
         go p fringe closed = if empty fringe
             then Nothing
@@ -136,7 +146,7 @@ breadthFirstGraphSearch = graphSearch (FifoQueue [])
 --  (if a solution is found) which take the place of Nothing and Just in the
 --  other search functions.
 depthLimitedSearch :: (Problem p s a) => Int -> p s a -> DepthLimited (Node s a)
-depthLimitedSearch lim prob = recursiveDLS (root $ initial prob) prob lim
+depthLimitedSearch lim prob = recursiveDLS (root prob $ initial prob) prob lim
     where
         recursiveDLS node p lim
             | goalTest p (state node) = Ok node
@@ -175,6 +185,24 @@ aStarSearch :: (Problem p s a, Ord s) => (Node s a -> Double) -> p s a -> Maybe 
 aStarSearch h = graphSearch (PQueue [] f)
     where
         f n = h n + cost n
+
+-----------------------------
+-- Local Search Algorithms --
+-----------------------------
+
+-- |From the initial node, keep choosing the neighbour with the highest value,
+--  stopping when no neighbour is better.
+hillClimbingSearch :: (Problem p s a) => p s a -> Node s a
+hillClimbingSearch prob = go (root prob $ initial prob)
+    where
+        go node = if value neighbour <= value node
+            then node
+            else go neighbour
+            where
+                neighbour = argMax (expand prob node) value
+
+argMax :: (Ord b) => [a] -> (a -> b) -> a
+argMax xs f = fst $ L.maximumBy (comparing snd) $ zip xs (map f xs)
 
 --------------------
 -- A test problem --
@@ -220,7 +248,7 @@ instance Ord s => Problem GraphProblem s s where
     initial = initGP
     goal = goalGP
     successor (GP g _ _) s = [ (x,x) | (x,_) <- getNeighbors s g ]
-    pathCost (GP g _ _) c s _ s' = c + costFromTo g s s'
+    costP (GP g _ _) c s _ s' = c + costFromTo g s s'
 
 testGraph :: Graph Char
 testGraph = mkGraph
