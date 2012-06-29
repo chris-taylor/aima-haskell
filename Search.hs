@@ -3,7 +3,9 @@
 module Search where
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.Map (Map)
+import Data.Set (Set)
 import Data.Maybe (fromJust)
 
 import Queue
@@ -91,8 +93,8 @@ treeSearch q problem = go problem (root (initial problem) `push` q)
             then Nothing
             else let (node, rest) = pop fringe
                  in if goalTest p (state node)
-                        then Just node
-                        else go p (expand problem node `extend` rest)
+                    then Just node
+                    else go p (expand problem node `extend` rest)
 
 -- |Search the deepest nodes in the search tree first.
 depthFirstTreeSearch :: (Problem p s a) => p s a -> Maybe (Node s a)
@@ -101,6 +103,34 @@ depthFirstTreeSearch = treeSearch []
 -- |Search the shallowest nodes in the search tree first.
 breadthFirstTreeSearch :: (Problem p s a) => p s a -> Maybe (Node s a)
 breadthFirstTreeSearch = treeSearch (FifoQueue [])
+
+-- |Search through the successors of a node to find a goal. The argument
+--  @fringe@ should be an empty queue. If two paths reach the same state, use
+--  only the best one.
+graphSearch :: (Problem p s a, Queue q, Ord s) => q (Node s a) -> p s a -> Maybe (Node s a)
+graphSearch q prob = go prob (root (initial prob) `push` q) S.empty
+    where
+        go p fringe closed = if empty fringe
+            then Nothing
+            else if goalTest p thisState
+                then Just node
+                else if thisState `S.member` closed
+                    then go p rest  closed
+                    else go p rest' closed'
+            where
+                (node,rest) = pop fringe
+                thisState   = state node
+                rest'       = expand prob node `extend` rest
+                closed'     = thisState `S.insert` closed
+
+-- |Search the deepest nodes in the graph first.
+depthFirstGraphSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
+depthFirstGraphSearch = graphSearch []
+
+-- |Search the shallowest nodes in the graph first.
+breadthFirstGraphSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
+breadthFirstGraphSearch = graphSearch (FifoQueue [])
+
 
 data DepthLimited a = Fail | Cutoff | Ok a deriving (Show)
 
@@ -139,6 +169,8 @@ iterativeDeepeningSearch prob = go 1
 bestFirstTreeSearch :: (Problem p s a) => (Node s a -> Double) -> p s a -> Maybe (Node s a)
 bestFirstTreeSearch f = treeSearch (PQueue [] f)
 
+bestFirstGraphSearch :: (Problem p s a, Ord s) => (Node s a -> Double) -> p s a -> Maybe (Node s a)
+bestFirstGraphSearch f = graphSearch (PQueue [] f)
 
 --------------------
 -- A test problem --
@@ -166,27 +198,34 @@ data Graph a = G { getGraph :: (Map a [(a,Cost)]) } deriving (Show)
 mkGraph :: Ord a => [(a,[(a,Cost)])] -> Graph a
 mkGraph = G . M.fromList
 
-costFromTo :: Ord a => Graph a -> a -> a -> Cost
-costFromTo (G g) a b = case M.lookup a g of
+getNeighbors :: Ord a => a -> Graph a -> [(a,Cost)]
+getNeighbors a (G g) = case M.lookup a g of
     Nothing -> error "Vertex not found in graph!"
-    Just ls -> case lookup b ls of
-        Nothing -> 1/0
-        Just c  -> c
+    Just ls -> ls
 
-data GraphProblem s a = GP { graphGP :: Graph s, initGP :: s, goalGP :: s } deriving (Show)
+costFromTo :: Ord a => Graph a -> a -> a -> Cost
+costFromTo graph a b = case lookup b (getNeighbors a graph) of
+    Nothing -> 1/0
+    Just c  -> c
+
+data GraphProblem s a = GP
+    { graphGP :: Graph s
+    , initGP :: s
+    , goalGP :: s } deriving (Show)
 
 instance Ord s => Problem GraphProblem s s where
     initial = initGP
     goal = goalGP
-    successor (GP (G g) _ _) s = [ (x,x) | (x,_) <- fromJust $ M.lookup s g ]
+    successor (GP g _ _) s = [ (x,x) | (x,_) <- getNeighbors s g ]
     pathCost (GP g _ _) c s _ s' = c + costFromTo g s s'
 
 testGraph :: Graph Char
 testGraph = mkGraph
-    [ ('A', [('B',1), ('C',3)])
-    , ('B', [('A',1), ('D',2)])
+    [ ('A', [('B',5), ('C',3)])
+    , ('B', [('A',5), ('D',6)])
     , ('C', [('A',3), ('D',4)])
-    , ('D', [('B',2), ('C',4)]) ]
+    , ('D', [('B',6), ('C',4)]) ]
 
 gp :: GraphProblem Char Char
 gp = GP { graphGP = testGraph, initGP = 'A', goalGP = 'D' }
+
