@@ -18,9 +18,6 @@ instance Queue [] where
     push   = (:)
     extend = (++)
 
--- |A wrapper for the list type, so that it can be used as a FIFO queue.
-data FifoQueue a = FifoQueue [a]
-
 -- |A FIFO queue implemented with a list. Note that this is inefficient, as the
 --  complexity is O(n) to push a new element onto the list.
 instance Queue FifoQueue where
@@ -29,11 +26,7 @@ instance Queue FifoQueue where
     push x    (FifoQueue q) = FifoQueue (q ++ [x])
     extend xs (FifoQueue q) = FifoQueue (q ++ xs)
 
--- |A wrapper for the list type to allow it to be used as a priority queue
-data PriorityQueue k a = PQueue { pqueue :: [(k,a)], keyfun :: a -> k }
-
-instance (Show k, Show a) => Show (PriorityQueue k a) where
-    show (PQueue q _) = "PQueue " ++ show q
+data FifoQueue a = FifoQueue [a]
 
 -- |A priority queue implemented as an association list. This is inefficient
 --  as the complexity of push is O(n), as opposed to O(log n) if we used a
@@ -47,3 +40,5 @@ instance Ord k => Queue (PriorityQueue k) where
             ins k x ((k',v) : rest) = if k < k'
                 then (k,x) : (k',v) : rest
                 else (k',v) : ins k x rest
+
+data PriorityQueue k a = PQueue { pqueue :: [(k,a)], keyfun :: a -> k }
