@@ -195,6 +195,9 @@ bestFirstGraphSearch f = graphSearch (PQueue [] f)
 aStarSearch :: (Problem p s a, Ord s) => (Node s a -> Double) -> p s a -> Maybe (Node s a)
 aStarSearch h = bestFirstGraphSearch (\n -> h n + cost n)
 
+aStarSearch' :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
+aStarSearch' prob = aStarSearch (heuristic prob) prob
+
 -----------------------------
 -- Local Search Algorithms --
 -----------------------------
@@ -351,8 +354,58 @@ testSearcher prob searcher = do
 testSearchers :: [ProblemIO p s a -> t] -> p s a -> IO [(t,Int,Int,Int)]
 testSearchers searchers prob = testSearcher prob `mapM` searchers
 
-testAll :: [ProblemIO p s a -> t] -> [p s a] -> IO [[(t,Int,Int,Int)]] 
-testAll searchers probs = testSearchers searchers `mapM` probs
+compareSearchers :: (Show t) => [ProblemIO p s a -> t]
+                 -> [p s a]
+                 -> [String]
+                 -> [String]
+                 -> IO [[(t,Int,Int,Int)]] 
+compareSearchers searchers probs header rownames = do
+    results <- testSearchers searchers `mapM` probs
+    printTable 20 (map (map f) results) header rownames
+    return results
+    where
+        f (x,i,j,k) = (i,j,k)
+
+printTable :: Show a => Int -> [[a]] -> [String] -> [String] -> IO ()
+printTable pad xs header rownames = do
+    let horzLines = replicate (length header) (replicate pad '-')
+    printRow pad horzLines
+    printRow pad header
+    printRow pad horzLines
+    let rows = zipWith (:) rownames (map (map show) xs)
+    mapM_ (printRow pad) rows
+    printRow pad horzLines
+
+printRow :: Int -> [String] -> IO ()
+printRow pad xs = do
+    let ys = map (trim pad) xs
+    putChar '|'
+    mapM_ printCell ys
+    putStrLn ""
+    where
+        trim pad str = let n = length str
+                           m = max 0 (pad - n)
+                        in take pad str ++ replicate m ' '
+        printCell cl = putStr cl >> putChar '|'
+
+compareGraphSearchers :: IO ()
+compareGraphSearchers = do
+    compareSearchers searchers probs header rownames
+    return ()
+    where
+        searchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
+                    , depthFirstGraphSearch, iterativeDeepeningSearch
+                    , aStarSearch']
+        probs = [gp1, gp2]
+        rownames = ["Romania(A,B)","Romania(O,N)"]
+        header = [ "Problem", "Breadth First Tree Search"
+                 , "Breadth First Graph Search"
+                 , "Depth First Graph Search", "Iterative Deepening Search"
+                 , "A* Search"]
+
+
+
+
 
 
 
