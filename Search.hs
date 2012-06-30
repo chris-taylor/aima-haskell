@@ -2,6 +2,7 @@
 
 module Search where
 
+import Control.Monad
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.List as L
@@ -9,6 +10,9 @@ import Data.Map (Map)
 import Data.Maybe (fromJust)
 import Data.Ord (comparing)
 import Data.Set (Set)
+
+import Data.IORef
+import System.IO.Unsafe (unsafePerformIO)
 
 import Queue
 import Graph (Graph)
@@ -48,9 +52,14 @@ class Eq s => Problem p s a where
     costP :: p s a -> Cost -> s -> a -> s -> Cost
     costP _ c _ _ _ = c + 1
 
+    -- | You may want to specify a heuristic function for the problem. The
+    --   default implementation always returns zero.
+    heuristic :: p s a -> Node s a -> Cost
+    heuristic _ = const 0
+
     -- | For optimization problems, each state has a value. Hill-climbing and
     --   related algorithms try to maximise this value. The default
-    --  implementation always returs Nothing.
+    --  implementation always returns Nothing.
     valueP :: p s a -> s -> Maybe Double
     valueP _ = const Nothing
 
@@ -73,8 +82,8 @@ instance (Show s, Show a) => Show (Node s a) where
 
 -- |A convenience constructor for root nodes (a node with no parent, no action
 --  that leads to it, and zero cost.)
-root :: (Problem p s a) => p s a -> s -> Node s a
-root p s = Node s Nothing Nothing 0 0 (valueP p s)
+root :: (Problem p s a) => p s a -> Node s a
+root p = Node s Nothing Nothing 0 0 (valueP p s) where s = initial p
 
 -- |Create a list of paths from the root node to the node specified.
 path :: Node s a -> [Node s a]
@@ -99,7 +108,7 @@ expand p node = [ mkNode a s | (a,s) <- successor p (state node) ]
 --  @fringe@ should be an empty queue. We don't worry about repeated paths
 --  to a state.
 treeSearch :: (Problem p s a, Queue q) => q (Node s a) -> p s a -> Maybe (Node s a)
-treeSearch q prob = go prob (root prob (initial prob) `push` q)
+treeSearch q prob = go prob (root prob `push` q)
     where
         go p fringe = if empty fringe
             then Nothing
@@ -120,7 +129,7 @@ breadthFirstTreeSearch = treeSearch (FifoQueue [])
 --  @fringe@ should be an empty queue. If two paths reach the same state, use
 --  only the best one.
 graphSearch :: (Problem p s a, Queue q, Ord s) => q (Node s a) -> p s a -> Maybe (Node s a)
-graphSearch q prob = go prob (root prob (initial prob) `push` q) S.empty
+graphSearch q prob = go prob (root prob `push` q) S.empty
     where
         go p fringe closed = if empty fringe
             then Nothing
@@ -148,7 +157,7 @@ breadthFirstGraphSearch = graphSearch (FifoQueue [])
 --  (if a solution is found) which take the place of Nothing and Just in the
 --  other search functions.
 depthLimitedSearch :: (Problem p s a) => Int -> p s a -> DepthLimited (Node s a)
-depthLimitedSearch lim prob = recursiveDLS (root prob $ initial prob) prob lim
+depthLimitedSearch lim prob = recursiveDLS (root prob) prob lim
     where
         recursiveDLS node p lim
             | goalTest p (state node) = Ok node
@@ -193,7 +202,7 @@ aStarSearch h = bestFirstGraphSearch (\n -> h n + cost n)
 -- |From the initial node, keep choosing the neighbour with the highest value,
 --  stopping when no neighbour is better.
 hillClimbingSearch :: (Problem p s a) => p s a -> Node s a
-hillClimbingSearch prob = go (root prob $ initial prob)
+hillClimbingSearch prob = go (root prob)
     where
         go node = if value neighbour <= value node
             then node
@@ -260,15 +269,13 @@ instance Ord s => Problem GraphProblem s s where
     goal = goalGP
     successor (GP g _ _) s = [ (x,x) | (x,_) <- getNeighbors s g ]
     costP (GP g _ _) c s _ s' = c + costFromTo g s s'
+    heuristic (GP g _ goal) n = euclideanDist x y
+        where
+            x = getLocation (state n) g
+            y = getLocation goal g
 
 euclideanDist :: Point -> Point -> Double
 euclideanDist (x,y) (x',y') = sqrt $ (x-x')^2 + (y-y')^2
-
-mkHeuristic :: Ord s => GraphProblem s a -> Node s a -> Double
-mkHeuristic (GP g _ goal) node = euclideanDist x y
-    where
-        x = getLocation (state node) g
-        y = getLocation goal g
 
 romania :: GraphMap Char
 romania = mkGraphMap
@@ -293,6 +300,65 @@ romania = mkGraphMap
     , ('O',(131,571)), ('P',(320,368)), ('R',(233,410)), ('S',(207,457))
     , ('T',( 94,410)), ('U',(456,350)), ('V',(509,444)), ('Z',(108,531)) ]
 
-gp :: GraphProblem Char Char
-gp = GP { graphGP = romania, initGP = 'A', goalGP = 'B' }
+gp1, gp2 :: GraphProblem Char Char
+
+gp1 = GP { graphGP = romania, initGP = 'A', goalGP = 'B' }
+gp2 = GP { graphGP = romania, initGP = 'O', goalGP = 'N' }
+
+-----------------------
+-- Compare Searchers --
+-----------------------
+
+data ProblemIO p s a = PIO
+    { problemIO     :: p s a
+    , numGoalChecks :: IORef Int
+    , numSuccs      :: IORef Int
+    , numStates     :: IORef Int }
+
+mkProblemIO :: p s a -> IO (ProblemIO p s a)
+mkProblemIO p = do
+    i <- newIORef 0
+    j <- newIORef 0
+    k <- newIORef 0
+    return (PIO p i j k)
+
+instance (Problem p s a, Eq s) => Problem (ProblemIO p) s a where
+    initial (PIO p _ _ _) = initial p
+
+    goalTest (PIO p n _ _) s = unsafePerformIO $ do
+        modifyIORef n (+1)
+        return (goalTest p s)
+
+    successor (PIO p _ n m) s = unsafePerformIO $ do
+        let succs = successor p s
+        modifyIORef n (+1)
+        modifyIORef m (+length succs)
+        return succs
+
+    costP (PIO p _ _ _) = costP p
+
+    heuristic (PIO p _ _ _) = heuristic p
+
+testSearcher :: p s a -> (ProblemIO p s a -> t) -> IO (t,Int,Int,Int)
+testSearcher prob searcher = do
+    p@(PIO _ i j k) <- mkProblemIO prob
+    let result = searcher p in result `seq` do
+        numGoalChecks <- readIORef i
+        numSuccs      <- readIORef j
+        numState      <- readIORef k
+        return (result, numGoalChecks, numSuccs, numState)
+
+testSearchers :: [ProblemIO p s a -> t] -> p s a -> IO [(t,Int,Int,Int)]
+testSearchers searchers prob = testSearcher prob `mapM` searchers
+
+testAll :: [ProblemIO p s a -> t] -> [p s a] -> IO [[(t,Int,Int,Int)]] 
+testAll searchers probs = testSearchers searchers `mapM` probs
+
+
+
+
+
+
+
+
 
