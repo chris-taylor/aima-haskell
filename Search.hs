@@ -15,6 +15,7 @@ import Data.IORef
 import System.IO.Unsafe (unsafePerformIO)
 
 import Queue
+import Table
 import Graph (Graph)
 import qualified Graph as G
 
@@ -344,12 +345,12 @@ instance (Problem p s a, Eq s) => Problem (ProblemIO p) s a where
 
 testSearcher :: p s a -> (ProblemIO p s a -> t) -> IO (t,Int,Int,Int)
 testSearcher prob searcher = do
-    p@(PIO _ i j k) <- mkProblemIO prob
+    p@(PIO _ numGoalChecks numSuccs numStates) <- mkProblemIO prob
     let result = searcher p in result `seq` do
-        numGoalChecks <- readIORef i
-        numSuccs      <- readIORef j
-        numState      <- readIORef k
-        return (result, numGoalChecks, numSuccs, numState)
+        i <- readIORef numGoalChecks
+        j <- readIORef numSuccs
+        k <- readIORef numStates
+        return (result, i, j, k)
 
 testSearchers :: [ProblemIO p s a -> t] -> p s a -> IO [(t,Int,Int,Int)]
 testSearchers searchers prob = testSearcher prob `mapM` searchers
@@ -365,28 +366,6 @@ compareSearchers searchers probs header rownames = do
     return results
     where
         f (x,i,j,k) = (i,j,k)
-
-printTable :: Show a => Int -> [[a]] -> [String] -> [String] -> IO ()
-printTable pad xs header rownames = do
-    let horzLines = replicate (length header) (replicate pad '-')
-    printRow pad horzLines
-    printRow pad header
-    printRow pad horzLines
-    let rows = zipWith (:) rownames (map (map show) xs)
-    mapM_ (printRow pad) rows
-    printRow pad horzLines
-
-printRow :: Int -> [String] -> IO ()
-printRow pad xs = do
-    let ys = map (trim pad) xs
-    putChar '|'
-    mapM_ printCell ys
-    putStrLn ""
-    where
-        trim pad str = let n = length str
-                           m = max 0 (pad - n)
-                        in take pad str ++ replicate m ' '
-        printCell cl = putStr cl >> putChar '|'
 
 compareGraphSearchers :: IO ()
 compareGraphSearchers = do
