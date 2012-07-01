@@ -212,6 +212,16 @@ bestFirstGraphSearch :: (Problem p s a, Ord s) =>
                      -> Maybe (Node s a)
 bestFirstGraphSearch f = graphSearch (PQueue [] f)
 
+-- |Minimum cost search preferentially explores nodes with the lowest cost
+--  accrued, to guarantee that it finds the best path to the solution.
+minimumCostSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
+minimumCostSearch prob = bestFirstGraphSearch cost prob
+
+-- |Greedy best-first search preferentially explores nodes with the lowest
+--  cost remaining to the goal, ignoring cost already accrued.
+greedyBestFirstSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
+greedyBestFirstSearch prob = bestFirstGraphSearch (heuristic prob) prob
+
 -- |A* search takes a heuristic function that estimates how close each state is
 --  to the goal. It combines this with the path cost so far to get a total
 --  score, and preferentially explores nodes with a lower score. It is optimal
@@ -328,9 +338,9 @@ australia = mkGraphMap
 
 gp1, gp2, gp3  :: GraphProblem String String
 
-gp1 = GP { graphGP = romania, initGP = "A", goalGP = "B" }
-gp2 = GP { graphGP = romania, initGP = "O", goalGP = "N" }
-gp3 = GP { graphGP = australia, initGP = "Q", goalGP = "WA" }
+gp1 = GP { graphGP = australia, initGP = "Q", goalGP = "WA" }
+gp2 = GP { graphGP = romania, initGP = "A", goalGP = "B" }
+gp3 = GP { graphGP = romania, initGP = "O", goalGP = "N" }
 
 ----------------------
 -- N Queens Problem --
@@ -338,24 +348,17 @@ gp3 = GP { graphGP = australia, initGP = "Q", goalGP = "WA" }
 
 data NQueens s a = NQ { sizeNQ :: Int } deriving (Show)
 
-nQueens :: Int -> [Maybe Int]
-nQueens n = replicate n Nothing
-
-
--- |Update the state of the N-Queens board by playing a queen at (i,n)
+-- |Update the state of the N-Queens board by playing a queen at (i,n).
 updateNQ :: (Int,Int) -> [Maybe Int] -> [Maybe Int]
 updateNQ (c,r) s = insert c (Just r) s
 
--- |List functions (swap these out for ones from Data.List eventually)
+-- |Update the element at position i in a list.
 insert :: Int -> a -> [a] -> [a]
 insert 0 n (_:xs) = n : xs
 insert i n (x:xs) = x : insert (i-1) n xs
 
-find :: (Eq a) => a -> [a] -> Int
-find x xs = go x xs 0
-    where
-        go x (y:ys) n = if x == y then n else go x ys (n+1)
-
+-- |Given a list x :: [a], return a new list y :: [(Int,a)] which pairs every
+--  element of the list with its position.
 enumerate :: [a] -> [(Int,a)]
 enumerate = zip [0..]
 
@@ -374,7 +377,7 @@ conflicted state row col = or $ map f (enumerate state)
             else conflict row col r c
 
 instance Problem NQueens [Maybe Int] (Int,Int) where
-    initial (NQ n) = nQueens n
+    initial (NQ n) = replicate n Nothing
 
     -- @L.elemIndex Nothing s@ finds the index of the first column in s
     -- that doesn't yet have a queen.
@@ -398,6 +401,8 @@ p = NQ 8
 -- Compare Searchers --
 -----------------------
 
+-- |Wrapper for a problem that keeps statistics on how many times nodes were
+--  expanded in the course of a search. 
 data ProblemIO p s a = PIO
     { problemIO     :: p s a
     , numGoalChecks :: IORef Int
@@ -416,13 +421,10 @@ instance (Problem p s a, Eq s, Show s) => Problem (ProblemIO p) s a where
 
     goalTest (PIO p n _ _) s = unsafePerformIO $ do
         modifyIORef n (+1)
-        --putStrLn $ "Goal test: " ++ show s
         return (goalTest p s)
 
     successor (PIO p _ n m) s = unsafePerformIO $ do
         let succs = successor p s
-        --putStrLn $ "Expanding: " ++ show s
-        --putStrLn $ "Result:    " ++ show (map snd succs)
         modifyIORef n (+1)
         modifyIORef m (+length succs)
         return succs
@@ -466,7 +468,7 @@ detailedCompareSearchers searchers names prob = do
         let d = depth $ fromJust n
         let c = round $ cost $ fromJust n
         return [d,c,numGoalChecks,numSuccs,numStates]
-    printTable 12 table header names
+    printTable 15 table header names
     where
         header = ["Searcher","Depth","Cost","Goal Checks","Successors",
                   "States"]
@@ -478,13 +480,13 @@ compareGraphSearchers = do
     where
         searchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
                     , depthFirstGraphSearch, iterativeDeepeningSearch
-                    , aStarSearch']
+                    , minimumCostSearch, greedyBestFirstSearch, aStarSearch']
         probs = [gp1, gp2, gp3]
         rownames = ["Romania(A,B)","Romania(O,N)","Australia"]
         header = [ "Problem", "Breadth First Tree Search"
-                 , "Breadth First Graph Search"
-                 , "Depth First Graph Search", "Iterative Deepening Search"
-                 , "A* Search"]
+                 , "Breadth First Graph Search", "Depth First Graph Search"
+                 , "Iterative Deepening Search", "MinimumCostSearch"
+                 , "GreedyBestFirstSearch", "A* Search"]
 
 runDetailedCompare :: (Problem p s a, Ord s, Show s) => p s a -> IO ()
 runDetailedCompare = detailedCompareSearchers allSearchers allSearcherNames
@@ -492,6 +494,8 @@ runDetailedCompare = detailedCompareSearchers allSearchers allSearcherNames
 allSearchers :: (Problem p s a, Ord s) => [p s a -> Maybe (Node s a)]
 allSearchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
                , depthFirstGraphSearch, iterativeDeepeningSearch
-               , aStarSearch']
+               , greedyBestFirstSearch, minimumCostSearch, aStarSearch']
 
-allSearcherNames = [ "BFTS", "BFGS", "DFGS", "IDS", "A*"]
+allSearcherNames = [ "BreadthFirstTreeSearch", "BreadthFirstGraphSearch"
+                   , "DepthFirstGraphSearch", "IterativeDeepeningSearch"
+                   , "GreedyBestFirstSearch", "MinimumCostSearch", "A*Search"]
