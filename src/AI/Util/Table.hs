@@ -1,4 +1,4 @@
-module Table (printTable) where
+module AI.Util.Table (printTable) where
 
 printTable :: Show a => Int -> [[a]] -> [String] -> [String] -> IO ()
 printTable pad xs header rownames = do

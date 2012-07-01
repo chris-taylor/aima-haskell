@@ -1,4 +1,4 @@
-module Queue where
+module AI.Util.Queue where
 
 -- |An abstract Queue class supporting a test for emptiness and push/pop
 --  functions. You can override the function 'extend' for performance reasons.

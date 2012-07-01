@@ -1,6 +1,6 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
-module Search where
+module AI.Search where
 
 import Control.Monad
 import Data.IORef

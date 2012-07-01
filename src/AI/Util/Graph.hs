@@ -1,4 +1,4 @@
-module Graph
+module AI.Util.Graph
     ( Graph(..)
     , toGraph
     , toUndirectedGraph
