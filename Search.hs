@@ -108,7 +108,10 @@ expand p node = [ mkNode a s | (a,s) <- successor p (state node) ]
 -- |Search through the successors of a node to find a goal. The argument
 --  @fringe@ should be an empty queue. We don't worry about repeated paths
 --  to a state.
-treeSearch :: (Problem p s a, Queue q) => q (Node s a) -> p s a -> Maybe (Node s a)
+treeSearch :: (Problem p s a, Queue q) =>
+              q (Node s a)      -- ^ Empty queue
+           -> p s a             -- ^ Problem
+           -> Maybe (Node s a)
 treeSearch q prob = go prob (root prob `push` q)
     where
         go p fringe = if empty fringe
@@ -129,7 +132,10 @@ breadthFirstTreeSearch = treeSearch (FifoQueue [])
 -- |Search through the successors of a node to find a goal. The argument
 --  @fringe@ should be an empty queue. If two paths reach the same state, use
 --  only the best one.
-graphSearch :: (Problem p s a, Queue q, Ord s) => q (Node s a) -> p s a -> Maybe (Node s a)
+graphSearch :: (Problem p s a, Queue q, Ord s) =>
+               q (Node s a)     -- ^ Empty queue
+            -> p s a            -- ^ Problem
+            -> Maybe (Node s a)
 graphSearch q prob = go prob (root prob `push` q) S.empty
     where
         go p fringe closed = if empty fringe
@@ -157,7 +163,10 @@ breadthFirstGraphSearch = graphSearch (FifoQueue [])
 --  return 'Cutoff', otherwise return 'Fail' (if no solution is found) or 'Ok'
 --  (if a solution is found) which take the place of Nothing and Just in the
 --  other search functions.
-depthLimitedSearch :: (Problem p s a) => Int -> p s a -> DepthLimited (Node s a)
+depthLimitedSearch :: (Problem p s a) =>
+                      Int       -- ^ Depth limit
+                   -> p s a     -- ^ Problem
+                   -> DepthLimited (Node s a)
 depthLimitedSearch lim prob = recursiveDLS (root prob) prob lim
     where
         recursiveDLS node p lim
@@ -187,15 +196,34 @@ iterativeDeepeningSearch prob = go 1
 -- Informed (Heuristic) Search --
 ---------------------------------
 
-bestFirstTreeSearch :: (Problem p s a) => (Node s a -> Double) -> p s a -> Maybe (Node s a)
+-- |Best-first tree search takes a function that scores each potential successor
+--  and prefers to explore nodes with the lowest score first.
+bestFirstTreeSearch :: (Problem p s a) =>
+                       (Node s a -> Double) -- ^ Function to score each node
+                    -> p s a                -- ^ Problem
+                    -> Maybe (Node s a)
 bestFirstTreeSearch f = treeSearch (PQueue [] f)
 
-bestFirstGraphSearch :: (Problem p s a, Ord s) => (Node s a -> Double) -> p s a -> Maybe (Node s a)
+-- |Best-first graph search keeps track of states that have already been visited
+--  and won't visit the same state twice.
+bestFirstGraphSearch :: (Problem p s a, Ord s) =>
+                        (Node s a -> Double)    -- ^ Function to score each node
+                     -> p s a                   -- ^ Problem
+                     -> Maybe (Node s a)
 bestFirstGraphSearch f = graphSearch (PQueue [] f)
 
-aStarSearch :: (Problem p s a, Ord s) => (Node s a -> Double) -> p s a -> Maybe (Node s a)
+-- |A* search takes a heuristic function that estimates how close each state is
+--  to the goal. It combines this with the path cost so far to get a total
+--  score, and preferentially explores nodes with a lower score. It is optimal
+--  whenever the heuristic function is 
+aStarSearch :: (Problem p s a, Ord s) =>
+               (Node s a -> Double)         -- ^ Heuristic function
+            -> p s a                        -- ^ Problem
+            -> Maybe (Node s a)
 aStarSearch h = bestFirstGraphSearch (\n -> h n + cost n)
 
+-- |A variant on A* search that uses the heuristic function defined by the
+--  problem.
 aStarSearch' :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
 aStarSearch' prob = aStarSearch (heuristic prob) prob
 
@@ -217,25 +245,8 @@ hillClimbingSearch prob = go (root prob)
 argMax :: (Ord b) => [a] -> (a -> b) -> a
 argMax xs f = fst $ L.maximumBy (comparing snd) $ zip xs (map f xs)
 
---------------------
--- A test problem --
---------------------
-
-data WP s a = WP
-    { initialWP :: s
-    , goalWP :: s
-    , charsWP :: [a]
-    , maxLen :: Int } deriving (Show)
-
-instance Problem WP String Char where
-    initial = initialWP
-    goal = goalWP
-    successor p s = if length s == maxLen p
-        then []
-        else [ (a, a:s) | a <- charsWP p ]
-
-wp :: WP String Char
-wp = WP { initialWP = "", goalWP = "abracad", charsWP = "abrcd" , maxLen = 11 }
+argMin :: (Ord b) => [a] -> (a -> b) -> a
+argMin xs f = fst $ L.minimumBy (comparing snd) $ zip xs (map f xs)
 
 -------------------------------
 -- Graphs and Graph Problems --
@@ -281,33 +292,107 @@ instance Ord s => Problem GraphProblem s s where
 euclideanDist :: Point -> Point -> Double
 euclideanDist (x,y) (x',y') = sqrt $ (x-x')^2 + (y-y')^2
 
-romania :: GraphMap Char
+romania :: GraphMap String
 romania = mkGraphMap
 
-    [ ('A', [('Z',75), ('S',140), ('T',118)])
-    , ('B', [('U',85), ('P',101), ('G',90), ('F',211)])
-    , ('C', [('D',120), ('R',146), ('P',138)])
-    , ('D', [('M',75)])
-    , ('E', [('H',86)])
-    , ('F', [('S',99)])
-    , ('H', [('U',98)])
-    , ('I', [('V',92), ('N',87)])
-    , ('L', [('T',111), ('M',70)])
-    , ('O', [('Z',71), ('S',151)])
-    , ('P', [('R',97)])
-    , ('R', [('S',80)])
-    , ('U', [('V',142)]) ]
+    [ ("A", [("Z",75), ("S",140), ("T",118)])
+    , ("B", [("U",85), ("P",101), ("G",90), ("F",211)])
+    , ("C", [("D",120), ("R",146), ("P",138)])
+    , ("D", [("M",75)])
+    , ("E", [("H",86)])
+    , ("F", [("S",99)])
+    , ("H", [("U",98)])
+    , ("I", [("V",92), ("N",87)])
+    , ("L", [("T",111), ("M",70)])
+    , ("O", [("Z",71), ("S",151)])
+    , ("P", [("R",97)])
+    , ("R", [("S",80)])
+    , ("U", [("V",142)]) ]
 
-    [ ('A',( 91,491)), ('B',(400,327)), ('C',(253,288)), ('D',(165,299))
-    , ('E',(562,293)), ('F',(305,449)), ('G',(375,270)), ('H',(534,350))
-    , ('I',(473,506)), ('L',(165,379)), ('M',(168,339)), ('N',(406,537))
-    , ('O',(131,571)), ('P',(320,368)), ('R',(233,410)), ('S',(207,457))
-    , ('T',( 94,410)), ('U',(456,350)), ('V',(509,444)), ('Z',(108,531)) ]
+    [ ("A",( 91,491)), ("B",(400,327)), ("C",(253,288)), ("D",(165,299))
+    , ("E",(562,293)), ("F",(305,449)), ("G",(375,270)), ("H",(534,350))
+    , ("I",(473,506)), ("L",(165,379)), ("M",(168,339)), ("N",(406,537))
+    , ("O",(131,571)), ("P",(320,368)), ("R",(233,410)), ("S",(207,457))
+    , ("T",( 94,410)), ("U",(456,350)), ("V",(509,444)), ("Z",(108,531)) ]
 
-gp1, gp2 :: GraphProblem Char Char
+australia :: GraphMap String
+australia = mkGraphMap
 
-gp1 = GP { graphGP = romania, initGP = 'A', goalGP = 'B' }
-gp2 = GP { graphGP = romania, initGP = 'O', goalGP = 'N' }
+    [ ("T",   [])
+    , ("SA",  [("WA",1), ("NT",1), ("Q",1), ("NSW",1), ("V",1)])
+    , ("NT",  [("WA",1), ("Q",1)])
+    , ("NSW", [("Q", 1), ("V",1)]) ]
+
+    [ ("WA",(120,24)), ("NT" ,(135,20)), ("SA",(135,30)),
+      ("Q" ,(145,20)), ("NSW",(145,32)), ("T" ,(145,42)), ("V",(145,37))]
+
+gp1, gp2, gp3  :: GraphProblem String String
+
+gp1 = GP { graphGP = romania, initGP = "A", goalGP = "B" }
+gp2 = GP { graphGP = romania, initGP = "O", goalGP = "N" }
+gp3 = GP { graphGP = australia, initGP = "Q", goalGP = "WA" }
+
+----------------------
+-- N Queens Problem --
+----------------------
+
+data NQueens s a = NQ { sizeNQ :: Int } deriving (Show)
+
+nQueens :: Int -> [Maybe Int]
+nQueens n = replicate n Nothing
+
+
+-- |Update the state of the N-Queens board by playing a queen at (i,n)
+updateNQ :: (Int,Int) -> [Maybe Int] -> [Maybe Int]
+updateNQ (c,r) s = insert c (Just r) s
+
+-- |List functions (swap these out for ones from Data.List eventually)
+insert :: Int -> a -> [a] -> [a]
+insert 0 n (_:xs) = n : xs
+insert i n (x:xs) = x : insert (i-1) n xs
+
+find :: (Eq a) => a -> [a] -> Int
+find x xs = go x xs 0
+    where
+        go x (y:ys) n = if x == y then n else go x ys (n+1)
+
+enumerate :: [a] -> [(Int,a)]
+enumerate = zip [0..]
+
+-- |Would putting two queens in (r1,c1) and (r2,c2) conflict?
+conflict :: Int -> Int -> Int -> Int -> Bool
+conflict r1 c1 r2 c2 =
+    r1 == r2 || c1 == c2 || r1-c1 == r2-c2 || r1+c1 == r2+c2
+
+-- |Would placing a queen at (row,col) conflict with anything?
+conflicted :: [Maybe Int] -> Int -> Int -> Bool
+conflicted state row col = or $ map f (enumerate state)
+    where
+        f (_, Nothing) = False
+        f (c, Just r)  = if c == col && r == row
+            then False
+            else conflict row col r c
+
+instance Problem NQueens [Maybe Int] (Int,Int) where
+    initial (NQ n) = nQueens n
+
+    -- @L.elemIndex Nothing s@ finds the index of the first column in s
+    -- that doesn't yet have a queen.
+    successor (NQ n) s = case L.elemIndex Nothing s of
+        Nothing -> []
+        Just i  -> zip actions (map (`updateNQ` s) actions)
+            where
+                actions = map ((,) i) [0..n-1]
+
+    goalTest (NQ n) s = if last s == Nothing
+        then False
+        else not . or $ map f (enumerate s)
+            where
+                f (c,Nothing) = False
+                f (c,Just r)  = conflicted s r c
+
+p :: NQueens [Maybe Int] (Int,Int)
+p = NQ 8
 
 -----------------------
 -- Compare Searchers --
@@ -326,15 +411,18 @@ mkProblemIO p = do
     k <- newIORef 0
     return (PIO p i j k)
 
-instance (Problem p s a, Eq s) => Problem (ProblemIO p) s a where
+instance (Problem p s a, Eq s, Show s) => Problem (ProblemIO p) s a where
     initial (PIO p _ _ _) = initial p
 
     goalTest (PIO p n _ _) s = unsafePerformIO $ do
         modifyIORef n (+1)
+        --putStrLn $ "Goal test: " ++ show s
         return (goalTest p s)
 
     successor (PIO p _ n m) s = unsafePerformIO $ do
         let succs = successor p s
+        --putStrLn $ "Expanding: " ++ show s
+        --putStrLn $ "Result:    " ++ show (map snd succs)
         modifyIORef n (+1)
         modifyIORef m (+length succs)
         return succs
@@ -367,6 +455,22 @@ compareSearchers searchers probs header rownames = do
     where
         f (x,i,j,k) = (i,j,k)
 
+detailedCompareSearchers ::
+        [ProblemIO p s a -> Maybe (Node s1 a1)]
+     -> [String]
+     -> p s a
+     -> IO ()
+detailedCompareSearchers searchers names prob = do
+    result <- testSearchers searchers prob
+    table  <- forM result $ \(n,numGoalChecks,numSuccs,numStates) -> do
+        let d = depth $ fromJust n
+        let c = round $ cost $ fromJust n
+        return [d,c,numGoalChecks,numSuccs,numStates]
+    printTable 12 table header names
+    where
+        header = ["Searcher","Depth","Cost","Goal Checks","Successors",
+                  "States"]
+
 compareGraphSearchers :: IO ()
 compareGraphSearchers = do
     compareSearchers searchers probs header rownames
@@ -375,22 +479,19 @@ compareGraphSearchers = do
         searchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
                     , depthFirstGraphSearch, iterativeDeepeningSearch
                     , aStarSearch']
-        probs = [gp1, gp2]
-        rownames = ["Romania(A,B)","Romania(O,N)"]
+        probs = [gp1, gp2, gp3]
+        rownames = ["Romania(A,B)","Romania(O,N)","Australia"]
         header = [ "Problem", "Breadth First Tree Search"
                  , "Breadth First Graph Search"
                  , "Depth First Graph Search", "Iterative Deepening Search"
                  , "A* Search"]
 
+runDetailedCompare :: (Problem p s a, Ord s, Show s) => p s a -> IO ()
+runDetailedCompare = detailedCompareSearchers allSearchers allSearcherNames
 
+allSearchers :: (Problem p s a, Ord s) => [p s a -> Maybe (Node s a)]
+allSearchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
+               , depthFirstGraphSearch, iterativeDeepeningSearch
+               , aStarSearch']
 
-
-
-
-
-
-
-
-
-
-
+allSearcherNames = [ "BFTS", "BFGS", "DFGS", "IDS", "A*"]
