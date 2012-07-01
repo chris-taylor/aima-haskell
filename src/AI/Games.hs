@@ -1,14 +1,21 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
 module AI.Games where
 
+import Data.Map (Map, (!))
+
+import qualified Data.Map as M
+
 import AI.Util.Util
+import AI.Util.Graph (Graph)
+
+import qualified AI.Util.Graph as G
 
 -- | The type used to represent utilities
 type Utility = Double
 
 -- | Type used to distinguish between players
-data Player = PlayerA | PlayerB
+data Player = Max | Min deriving (Eq,Show)
 
 -- | A game is similar to a problem, but it has a utility for each
 --   state and a terminal test instead of a path cost and a goal
@@ -59,4 +66,29 @@ minimaxDecision game state = action
             then utility game s player
             else maximum [ minValue s' | (_,s') <- successors game s ]
 
+--------------------
+-- Game Instances --
+--------------------
 
+--data Tree s a = Leaf Utility | Branch s [(a,Tree s a)]
+
+data TreeGame s a = TG
+    { initTG :: s
+    , toMoveTG :: Map s Player
+    , legalMovesTG :: Map s [a]
+    , makeMoveTG :: Map s (Map a s)
+    , utilTG :: Map s Double
+    , terminalTG :: s -> Bool }
+
+instance (Ord s, Ord a) => Game TreeGame s a where
+    initial t = initTG t
+
+    toMove t s = toMoveTG t ! s
+
+    legalMoves t s = legalMovesTG t ! s
+
+    makeMove t a s = (makeMoveTG t ! s) ! a
+
+    utility t s p = let u = utilTG t ! s in if p == Max then u else -u
+
+    terminalTest t s = terminalTG t s
