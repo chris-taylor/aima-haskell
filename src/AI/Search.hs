@@ -17,6 +17,7 @@ import qualified Data.List as L
 import AI.Util.Graph (Graph)
 import AI.Util.Queue
 import AI.Util.Table
+import AI.Util.Util
 
 import qualified AI.Util.Graph as G
 
@@ -252,12 +253,6 @@ hillClimbingSearch prob = go (root prob)
             else go neighbour
             where
                 neighbour = argMax (expand prob node) value
-
-argMax :: (Ord b) => [a] -> (a -> b) -> a
-argMax xs f = fst $ L.maximumBy (comparing snd) $ zip xs (map f xs)
-
-argMin :: (Ord b) => [a] -> (a -> b) -> a
-argMin xs f = fst $ L.minimumBy (comparing snd) $ zip xs (map f xs)
 
 -------------------------------
 -- Graphs and Graph Problems --
