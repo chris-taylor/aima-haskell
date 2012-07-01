@@ -1,0 +1,35 @@
+Name:               aima-haskell
+Version:            0.1
+Synopsis:           Artificial Intelligence: A Modern Approach
+Description:        Implementation of algorithms in Russell and Norvig's AIMA
+License:            OtherLicense
+License-File:       LICENSE
+Author:             Chris Taylor
+Maintainer:         Chris Taylor
+Stability:          Experimental
+Homepage:           https://github.com/chris-taylor/aima-haskell
+Cabal-Version:      >= 1.8
+Build-Type:         Simple
+Category:           Language
+
+Extra-Source-Files: README.md
+                    LICENSE
+
+Data-Files:         
+
+Source-Repository head
+    Type:           git
+    Location:       git://github.com/chris-taylor/aima-haskell.git
+
+Library
+    Build-Depends:      base >= 2
+    Extensions:         
+    Hs-Source-Dirs:     src
+    Exposed-Modules:    AI.Search
+                        AI.Probability
+
+-- Executable          haski
+--     Build-Depends:  haskeme, base, parsec, mtl, haskell98, containers, array, random, directory
+--     Extensions:     ExistentialQuantification
+--     Main-is:        Main.hs
+--     Hs-Source-Dirs: src/Interpreter
