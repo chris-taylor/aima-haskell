@@ -4,6 +4,7 @@ module AI.Games where
 
 import Data.Map (Map, (!))
 
+import qualified Data.List as L
 import qualified Data.Map as M
 import qualified System.Random as R
 
@@ -67,6 +68,37 @@ minimaxDecision game state = a
             then utility game s player
             else maximum [ minValue s' | (_,s') <- successors game s ]
 
+-- | Search the game tree to determine the best action, using alpha-beta
+--   pruning. This version searches all the way to the leaves.
+alphaBetaFullSearch :: (Game g s a) => g s a -> s -> a
+alphaBetaFullSearch game state = a
+    where
+        player = toMove game state
+        succs  = successors game state
+        (a,_)  = argMax succs (minValue negInf posInf . snd)
+
+        minValue alpha beta state = if terminalTest game state
+            then utility game state player
+            else f posInf beta (map snd $ successors game state)
+            where
+                f v beta []     = v
+                f v beta (s:ss) = if v <= alpha
+                    then v
+                    else f v' (min beta v') ss
+                    where
+                        v' = min v (maxValue alpha beta s)
+
+        maxValue alpha beta state = if terminalTest game state
+            then utility game state player
+            else g negInf alpha (map snd $ successors game state)
+            where
+                g v alpha []     = v
+                g v alpha (s:ss) = if v >= beta
+                    then v
+                    else g v' (max alpha v')  ss
+                    where
+                        v' = max v (minValue alpha beta s)
+
 ------------------
 -- Game Players --
 ------------------
@@ -81,6 +113,9 @@ queryPlayer g s = do
 
 minimaxPlayer :: Game g s a => g s a -> s -> IO a
 minimaxPlayer g s = return (minimaxDecision g s)
+
+alphaBetaPlayer :: Game g s a => g s a -> s -> IO a
+alphaBetaPlayer g s = return (alphaBetaFullSearch g s)
 
 randomPlayer :: Game g s a => g s a -> s -> IO a
 randomPlayer g s = randomChoiceIO (legalMoves g s)
@@ -100,6 +135,8 @@ playGame game p1 p2 = go (initial game)
 --------------------
 -- Game Instances --
 --------------------
+
+-- Example game
 
 data GameExample s a = GameExample deriving (Show)
 
@@ -130,3 +167,69 @@ instance Game GameExample String Int where
     terminalTest t s = if s `elem` ["B1","B2","B3","C1","C2","C3","D1","D2","D3"]
         then True
         else False
+
+-- Tic tac toe (doesn't work yet and needs lots of cleaning up)
+
+data TicTacToe s a = TTT { hT :: Int, vT :: Int, kT :: Int } deriving (Show)
+
+data TTCounter = O | X deriving (Eq,Show)
+
+other :: TTCounter -> TTCounter
+other O = X
+other X = O
+
+type TTBoard = Map (Int,Int) TTCounter
+
+data TTState = TTS
+    { boardTT :: TTBoard
+    , toMoveTT :: TTCounter
+    , utilityTT :: Utility }
+
+instance Show TTState where
+    show s = concat $ L.intersperse "-+-+-\n" (map ((++"\n") . L.intersperse '|') (reverse (b2l s)))
+
+b2l :: TTState -> [[Char]]
+b2l (TTS board _ _) = map (map f) [ [ M.lookup (i,j) board | i <- [0..2] ] | j <- [0..2] ]
+    where
+        f (Just O) = 'O'
+        f (Just X) = 'X'
+        f Nothing  = ' '
+
+ticTacToe :: TicTacToe TTState (Int,Int)
+ticTacToe = TTT 3 3 3
+
+instance Game TicTacToe TTState (Int,Int) where
+    initial _ = TTS M.empty O 0
+
+    toMove _ (TTS _ p _) = if p == O then Max else Min
+
+    legalMoves (TTT h v _) (TTS board _ _) =
+        [ (i,j) | i <- [0..h-1], j <- [0..v-1], M.notMember (i,j) board ]
+
+    makeMove g move (TTS board p _) =
+        let u = computeUtility g board move p
+        in TTS (M.insert move p board) (other p) u
+
+    utility _ (TTS _ _ u) _= u
+
+    terminalTest g s = utilityTT s /= 0 || null (legalMoves g s)
+
+computeUtility :: TicTacToe TTState (Int,Int) -> TTBoard -> (Int,Int) -> TTCounter -> Utility
+computeUtility (TTT _ _ k) board move player = 
+    if f (0,1) || f (1,0)  || f (1,-1) || f (-1,1)
+        then if player == O then 1 else -1
+        else 0
+        where f x = kInARow k board move player x
+
+kInARow :: Int -> TTBoard -> (Int,Int) -> TTCounter -> (Int,Int) -> Bool
+kInARow k board (x,y) p (dx,dy) = n1 + n2 - 1 >= k
+    where
+        fw = map (`M.lookup` board) ( zip [x,x+dx..] [y,y+dy..] )
+        bk = map (`M.lookup` board) ( zip [x,x-dx..] [y,y-dy..] )
+        n1 = length $ takeWhile (== Just p) fw
+        n2 = length $ takeWhile (== Just p) bk
+
+testBoard :: TTState
+testBoard = makeMove ticTacToe (1,2) $ makeMove ticTacToe (2,2) $
+            makeMove ticTacToe (0,2) $ makeMove ticTacToe (0,0) $
+            initial ticTacToe

@@ -9,12 +9,12 @@ import qualified System.Random as R
 -----------------------
 
 -- | Positive infinity.
-positiveInfinity :: Fractional a => a
-positiveInfinity = 1/0
+posInf :: Fractional a => a
+posInf = 1/0
 
 -- | Negative infinity.
-negativeInfinity :: Fractional a => a
-negativeInfinity = -1/0
+negInf :: Fractional a => a
+negInf = -1/0
 
 --------------------
 -- List Functions --

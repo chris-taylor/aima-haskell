@@ -26,6 +26,12 @@ mapD = fmap
 mapP :: (Prob -> Prob) -> Dist a -> Dist a
 mapP f (D xs) = D (map (\(x,p) -> (x,f p)) xs)
 
+filterP :: (a -> Bool) -> Dist a -> Dist a
+filterP test (D xs) = normalize $ D $ filter (test . fst) xs
+
+(|||) :: Dist a -> (a -> Bool) -> Dist a
+p ||| condition = filterP condition p
+
 vals :: Dist a -> [a]
 vals (D xs) = map fst xs
 
