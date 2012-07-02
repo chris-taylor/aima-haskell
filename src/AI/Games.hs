@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
 
 module AI.Games where
 
@@ -52,16 +52,16 @@ class Game g s a where
 -- | Given a state in a game, calculate the best move by searching forward all
 --   the way to the terminal states.
 minimaxDecision :: (Game g s a) => g s a -> s -> a
-minimaxDecision game state = action
+minimaxDecision game state = a
     where
-        (action, _) = argMax (successors game state) (minValue . snd)
-
         player = toMove game state
+        succs  = successors game state
+        (a,_)  = argMax succs (minValue . snd)
 
         minValue s = if terminalTest game s
             then utility game s player
             else minimum [ maxValue s' | (_,s') <- successors game s ]
-        
+
         maxValue s = if terminalTest game s
             then utility game s player
             else maximum [ minValue s' | (_,s') <- successors game s ]
@@ -70,25 +70,32 @@ minimaxDecision game state = action
 -- Game Instances --
 --------------------
 
---data Tree s a = Leaf Utility | Branch s [(a,Tree s a)]
+data GameExample s a = GameExample deriving (Show)
 
-data TreeGame s a = TG
-    { initTG :: s
-    , toMoveTG :: Map s Player
-    , legalMovesTG :: Map s [a]
-    , makeMoveTG :: Map s (Map a s)
-    , utilTG :: Map s Double
-    , terminalTG :: s -> Bool }
+g :: GameExample String Int
+g = GameExample
 
-instance (Ord s, Ord a) => Game TreeGame s a where
-    initial t = initTG t
+instance Game GameExample String Int where
+    initial g = "A"
 
-    toMove t s = toMoveTG t ! s
+    toMove g "A" = Max
+    toMove g  _  = Min
 
-    legalMoves t s = legalMovesTG t ! s
+    legalMoves _ s = case s `elem` ["A","B","C","D"] of
+        True  -> [1,2,3]
+        False -> []
 
-    makeMove t a s = (makeMoveTG t ! s) ! a
+    makeMove _ n "A" = ["B","C","D"] !! (n-1)
+    makeMove _ n "B" = ["B1","B2","B3"] !! (n-1)
+    makeMove _ n "C" = ["C1","C2","C3"] !! (n-1)
+    makeMove _ n "D" = ["D1","D2","D3"] !! (n-1)
 
-    utility t s p = let u = utilTG t ! s in if p == Max then u else -u
+    utility _ s p = let u = util s in if p == Max then u else -u
+        where
+            util = listToFunction [ ("B1", 3), ("B2",12), ("B3", 8)
+                                  , ("C1", 2), ("C2", 4), ("C3", 6)
+                                  , ("D1",14), ("D2", 5), ("D3", 2) ]
 
-    terminalTest t s = terminalTG t s
+    terminalTest t s = if s `elem` ["B1","B2","B3","C1","C2","C3","D1","D2","D3"]
+        then True
+        else False

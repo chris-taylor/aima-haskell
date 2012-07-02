@@ -34,13 +34,13 @@ getNodes = M.keys
 -- |Get a list of the outbound links from node @a@.
 getNeighbours :: Ord a => a -> Graph a b -> [(a,b)]
 getNeighbours a g = case M.lookup a g of
-    Nothing -> error "Vertex not found in graph!"
+    Nothing -> error "Vertex not found in graph -- GETNEIGHBOURS"
     Just ls -> M.toList ls
 
 -- |Get the weight attached to the edge between @x@ and @y@.
 getEdge :: (Ord a) => a -> a -> Graph a b -> Maybe b
 getEdge x y g = case M.lookup x g of
-    Nothing -> error "Vertex not found in graph!"
+    Nothing -> error "Vertex not found in graph -- GETEDGE"
     Just ys -> M.lookup y ys
 
 -- |Convert a graph to its adjacency list representation.

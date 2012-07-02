@@ -28,6 +28,10 @@ Library
     Exposed-Modules:    AI.Search
                         AI.Games
                         AI.Probability
+                        AI.Util.Graph
+                        AI.Util.Queue
+                        AI.Util.Table
+                        AI.Util.Util
 
 -- Executable          haski
 --     Build-Depends:  haskeme, base, parsec, mtl, haskell98, containers, array, random, directory

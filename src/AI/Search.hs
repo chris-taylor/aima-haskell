@@ -272,7 +272,7 @@ getNeighbors a (G g _) = G.getNeighbours a g
 
 getLocation :: Ord a => a -> GraphMap a -> Point
 getLocation a (G _ l) = case M.lookup a l of
-    Nothing -> error "Vertex not found in graph!"
+    Nothing -> error "Vertex not found in graph -- GETLOCATION"
     Just pt -> pt
 
 costFromTo :: Ord a => GraphMap a -> a -> a -> Cost
