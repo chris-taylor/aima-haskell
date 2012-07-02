@@ -5,6 +5,7 @@ module AI.Games where
 import Data.Map (Map, (!))
 
 import qualified Data.Map as M
+import qualified System.Random as R
 
 import AI.Util.Util
 import AI.Util.Graph (Graph)
@@ -65,6 +66,36 @@ minimaxDecision game state = a
         maxValue s = if terminalTest game s
             then utility game s player
             else maximum [ minValue s' | (_,s') <- successors game s ]
+
+------------------
+-- Game Players --
+------------------
+
+type GamePlayer g s a = g s a -> s -> IO a
+
+queryPlayer :: (Game g s a, Show s, Read a) => g s a -> s -> IO a
+queryPlayer g s = do
+    print s
+    a <- readLn
+    return a
+
+minimaxPlayer :: Game g s a => g s a -> s -> IO a
+minimaxPlayer g s = return (minimaxDecision g s)
+
+randomPlayer :: Game g s a => g s a -> s -> IO a
+randomPlayer g s = randomChoiceIO (legalMoves g s)
+
+
+playGame :: Game g s a => g s a -> GamePlayer g s a -> GamePlayer g s a -> IO Double
+playGame game p1 p2 = go (initial game)
+    where
+        go s = if terminalTest game s
+            then return (utility game s Max)
+            else do
+                a <- player game s
+                go (makeMove game a s)           
+            where
+                player = if toMove game s == Max then p1 else p2
 
 --------------------
 -- Game Instances --
