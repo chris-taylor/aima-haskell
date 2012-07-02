@@ -348,16 +348,6 @@ data NQueens s a = NQ { sizeNQ :: Int } deriving (Show)
 updateNQ :: (Int,Int) -> [Maybe Int] -> [Maybe Int]
 updateNQ (c,r) s = insert c (Just r) s
 
--- |Update the element at position i in a list.
-insert :: Int -> a -> [a] -> [a]
-insert 0 n (_:xs) = n : xs
-insert i n (x:xs) = x : insert (i-1) n xs
-
--- |Given a list x :: [a], return a new list y :: [(Int,a)] which pairs every
---  element of the list with its position.
-enumerate :: [a] -> [(Int,a)]
-enumerate = zip [0..]
-
 -- |Would putting two queens in (r1,c1) and (r2,c2) conflict?
 conflict :: Int -> Int -> Int -> Int -> Bool
 conflict r1 c1 r2 c2 =
