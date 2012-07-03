@@ -13,17 +13,17 @@ import AI.Util.Graph (Graph)
 
 import qualified AI.Util.Graph as G
 
--- | The type used to represent utilities
+-- |The type used to represent utilities
 type Utility = Double
 
--- | Type used to distinguish between players
+-- |Type used to distinguish between players
 data Player = Max | Min deriving (Eq,Show)
 
--- | A game is similar to a problem, but it has a utility for each
---   state and a terminal test instead of a path cost and a goal
---   test. To create a game, make an instance of this class and implement
---   initial, toMove, legalMoves, makeMove, utility and terminalTest. You
---   may want to override successors for efficiency.
+-- |A game is similar to a problem, but it has a utility for each
+--  state and a terminal test instead of a path cost and a goal
+--  test. To create a game, make an instance of this class and implement
+--  initial, toMove, legalMoves, makeMove, utility and terminalTest. You
+--  may want to override successors for efficiency.
 class Game g s a where
     -- | The initial state of the game.
     initial :: g s a -> s
@@ -103,25 +103,34 @@ alphaBetaFullSearch game state = a
 -- Game Players --
 ------------------
 
+-- |Type synonym for a player - a function that takes a game and a state of
+--  that game, and returns an action. The result type is IO a to allow for
+--  reading moves from stdin or a file.
 type GamePlayer g s a = g s a -> s -> IO a
 
+-- |A human player - reads moves from stdin.
 queryPlayer :: (Game g s a, Show s, Read a) => g s a -> s -> IO a
 queryPlayer g s = putStr "Your move: " >> readLn
 
+-- |A player that uses the minimax algorithm to make its move.
 minimaxPlayer :: Game g s a => g s a -> s -> IO a
 minimaxPlayer g s = return (minimaxDecision g s)
 
+-- |A player that uses full alpha/beta search to make its move.
 alphaBetaPlayer :: Game g s a => g s a -> s -> IO a
 alphaBetaPlayer g s = return (alphaBetaFullSearch g s)
 
+-- |A player that chooses a move at random from all legal moves.
 randomPlayer :: Game g s a => g s a -> s -> IO a
 randomPlayer g s = randomChoiceIO (legalMoves g s)
 
+-- |Play a game between two players, printing out the states and moves made
+--  on each turn.
 playGame :: (Game g s a, Show s, Show a) =>
-            g s a
-         -> GamePlayer g s a
-         -> GamePlayer g s a
-         -> IO Utility
+            g s a               -- ^ Game to play
+         -> GamePlayer g s a    -- ^ Player 1
+         -> GamePlayer g s a    -- ^ Player 2
+         -> IO Utility          -- ^ Result of the game
 playGame game p1 p2 = go (initial game)
     where
         go state = if terminalTest game state
@@ -151,7 +160,8 @@ playGame game p1 p2 = go (initial game)
 -- Game Instances --
 --------------------
 
--- Example game
+-----------------------------
+-- Example game (see Fig 5.2)
 
 data GameExample s a = GameExample deriving (Show)
 
@@ -183,7 +193,8 @@ instance Game GameExample String Int where
         then True
         else False
 
--- Tic tac toe
+-------------------------------
+-- Tic Tac Toe on a h x v board
 
 data TicTacToe s a = TTT { hT :: Int, vT :: Int, kT :: Int } deriving (Show)
 
