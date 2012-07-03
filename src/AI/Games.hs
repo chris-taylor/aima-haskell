@@ -172,56 +172,62 @@ instance Game GameExample String Int where
 
 data TicTacToe s a = TTT { hT :: Int, vT :: Int, kT :: Int } deriving (Show)
 
+type TTMove = (Int,Int)
+
+type TTBoard = Map TTMove TTCounter
+
 data TTCounter = O | X deriving (Eq,Show)
 
 other :: TTCounter -> TTCounter
 other O = X
 other X = O
 
-type TTBoard = Map (Int,Int) TTCounter
-
 data TTState = TTS
     { boardTT :: TTBoard
     , toMoveTT :: TTCounter
-    , utilityTT :: Utility }
+    , utilityTT :: Utility
+    , limsTT :: (Int,Int,Int) }
 
 instance Show TTState where
-    show s = concat $ L.intersperse "-+-+-\n" (map ((++"\n") . L.intersperse '|') (reverse (b2l s)))
+    show s = concat $ L.intersperse row (map ((++"\n") . L.intersperse '|') (reverse (toChars s)))
+        where
+            row = "-+-+-\n"
 
-b2l :: TTState -> [[Char]]
-b2l (TTS board _ _) = map (map f) [ [ M.lookup (i,j) board | i <- [0..2] ] | j <- [0..2] ]
+toChars :: TTState -> [[Char]]
+toChars (TTS board _ _ (h,v,_)) = reverse $ map (map f) board'
     where
+        board' = [ [ M.lookup (i,j) board | i <- [0..h-1] ] | j <- [0..v-1] ]
         f (Just O) = 'O'
         f (Just X) = 'X'
         f Nothing  = ' '
 
-ticTacToe :: TicTacToe TTState (Int,Int)
+ticTacToe :: TicTacToe TTState TTMove
 ticTacToe = TTT 3 3 3
 
-instance Game TicTacToe TTState (Int,Int) where
-    initial _ = TTS M.empty O 0
+instance Game TicTacToe TTState TTMove where
+    initial (TTT h v k) = TTS M.empty O 0 (h,v,k)
 
-    toMove _ (TTS _ p _) = if p == O then Max else Min
+    toMove _ s = if toMoveTT s == O then Max else Min
 
-    legalMoves (TTT h v _) (TTS board _ _) =
+    legalMoves (TTT h v _) (TTS board _ _ _) =
         [ (i,j) | i <- [0..h-1], j <- [0..v-1], M.notMember (i,j) board ]
 
-    makeMove g move (TTS board p _) =
+    makeMove g move (TTS board p _ n) =
         let u = computeUtility g board move p
-        in TTS (M.insert move p board) (other p) u
+        in TTS (M.insert move p board) (other p) u n
 
-    utility _ (TTS _ _ u) _= u
+    utility _ s _ = utilityTT s
 
     terminalTest g s = utilityTT s /= 0 || null (legalMoves g s)
 
-computeUtility :: TicTacToe TTState (Int,Int) -> TTBoard -> (Int,Int) -> TTCounter -> Utility
+computeUtility :: TicTacToe TTState TTMove -> TTBoard -> TTMove -> TTCounter -> Utility
 computeUtility (TTT _ _ k) board move player = 
     if f (0,1) || f (1,0)  || f (1,-1) || f (-1,1)
         then if player == O then 1 else -1
         else 0
         where f x = kInARow k board move player x
 
-kInARow :: Int -> TTBoard -> (Int,Int) -> TTCounter -> (Int,Int) -> Bool
+kInARow :: Int -> TTBoard -> TTMove -> TTCounter -> (Int,Int) -> Bool
 kInARow k board (x,y) p (dx,dy) = n1 + n2 - 1 >= k
     where
         fw = map (`M.lookup` board) ( zip [x,x+dx..] [y,y+dy..] )
