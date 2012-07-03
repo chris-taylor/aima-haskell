@@ -39,6 +39,10 @@ insert i n (x:xs) = x : insert (i-1) n xs
 enumerate :: [a] -> [(Int,a)]
 enumerate = zip [0..]
 
+-- |Count the number of elements in a list that satisfy a predicate.
+countIf :: (a -> Bool) -> [a] -> Int
+countIf p xs = length (filter p xs)
+
 -- |Return the element of the target list that maximises a function.
 argMax :: (Ord b) => [a] -> (a -> b) -> a
 argMax xs f = fst $ L.maximumBy (O.comparing snd) $ zip xs (map f xs)
