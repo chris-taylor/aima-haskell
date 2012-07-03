@@ -4,15 +4,24 @@ import qualified Data.List as L
 import qualified Data.Ord as O
 import qualified System.Random as R
 
+-----------------
+-- Combinators --
+-----------------
+
+-- |The @|>@ combinator is left-to-right function composition with low
+--  precedence. It is equivalent to @(|>) = flip ($)@.
+(|>) :: a -> (a -> b) -> b
+x |> f = f x 
+
 -----------------------
 -- Numeric Functions --
 -----------------------
 
--- | Positive infinity.
+-- |Positive infinity.
 posInf :: Fractional a => a
 posInf = 1/0
 
--- | Negative infinity.
+-- |Negative infinity.
 negInf :: Fractional a => a
 negInf = -1/0
 
@@ -30,15 +39,15 @@ insert i n (x:xs) = x : insert (i-1) n xs
 enumerate :: [a] -> [(Int,a)]
 enumerate = zip [0..]
 
--- | Return the element of the target list that maximises a function.
+-- |Return the element of the target list that maximises a function.
 argMax :: (Ord b) => [a] -> (a -> b) -> a
 argMax xs f = fst $ L.maximumBy (O.comparing snd) $ zip xs (map f xs)
 
--- | Return the element of a list that minimises a function.
+-- |Return the element of a list that minimises a function.
 argMin :: (Ord b) => [a] -> (a -> b) -> a
 argMin xs f = fst $ L.minimumBy (O.comparing snd) $ zip xs (map f xs)
 
--- | Create a function from a list of (argument, value) pairs.
+-- |Create a function from a list of (argument, value) pairs.
 listToFunction :: (Eq a) => [(a,b)] -> a -> b
 listToFunction xs x = case lookup x xs of
     Nothing -> error "Argument not found in list -- LISTTOFUNCTION"
@@ -48,7 +57,7 @@ listToFunction xs x = case lookup x xs of
 -- Random Numbers -- 
 --------------------
 
--- | Choose a random element from a list
+-- |Choose a random element from a list
 randomChoiceIO :: [a] -> IO a
 randomChoiceIO [] = error "Empty list -- RANDOMCHOICEIO"
 randomChoiceIO xs = do
