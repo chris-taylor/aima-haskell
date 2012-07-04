@@ -3,8 +3,11 @@
 module AI.Games where
 
 import Prelude hiding (catch)
+
+import Control.DeepSeq
 import Control.Exception
 import Data.Map (Map, (!))
+import System.IO.Unsafe
 
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -47,8 +50,8 @@ class Game g s a where
 
     -- | You may want to define a heuristic function for the game, which
     --   evaluates how good a position is.
-    heuristic :: g s a -> s -> Utility
-    heuristic _ = const 0
+    heuristic :: g s a -> s -> Player -> Utility
+    heuristic g s p = if terminalTest g s then utility g s p else 0
 
     -- | Return a list of legal (move, state) pairs
     successors :: g s a -> s -> [(a,s)]
@@ -152,7 +155,12 @@ alphaBetaSearch' :: (Game g s a) => Int -> g s a -> s -> a
 alphaBetaSearch' lim game state = alphaBetaSearch game cutoffFn evalFn state
     where
         cutoffFn state depth = depth > lim
-        evalFn = utility game
+        evalFn = heuristic game
+
+iterativeAlphaBeta :: (NFData a, Game g s a) => Int -> g s a -> s -> a
+iterativeAlphaBeta t game state = head (unsafePerformIO result)
+    where
+        result = timeLimited t $ map (\d -> alphaBetaSearch' d game state) [0..]
 
 ------------------
 -- Game Players --
@@ -197,6 +205,10 @@ alphaBetaFullSearchPlayer g s = return (alphaBetaFullSearch g s)
 -- |A player that uses alpha/beta search with a cutoff.
 alphaBetaPlayer :: Game g s a => Int -> g s a -> s -> IO a
 alphaBetaPlayer n g s = return (alphaBetaSearch' n g s)
+
+-- |A player that uses iterative deepening alpha/beta search.
+iterativeAlphaBetaPlayer :: (NFData a, Game g s a) => Int -> g s a -> s -> IO a
+iterativeAlphaBetaPlayer t g s = return (iterativeAlphaBeta t g s)
 
 -- |A player that chooses a move at random from all legal moves.
 randomPlayer :: Game g s a => g s a -> s -> IO a
