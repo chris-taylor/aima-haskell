@@ -99,6 +99,54 @@ alphaBetaFullSearch game state = a
                     where
                         v' = max v (minValue alpha beta s)
 
+-- |Search the game tree to determine the best action using alpha-beta pruning.
+--  This version cuts off the search and uses an evaluation function
+alphaBetaSearch :: (Game g s a) =>
+                   g s a                    -- ^ Game
+                -> (s -> Int -> Bool)       -- ^ Cutoff test
+                -> (s -> Player -> Utility) -- ^ Evaluation function
+                -> s                        -- ^ Starting state
+                -> a                        -- ^ Final move
+alphaBetaSearch game cutoffTest evalFn state = a
+    where
+        player = toMove game state
+        succs  = successors game state
+        (a,_)  = argMax succs (minValue negInf posInf 0 . snd)
+
+        minValue alpha beta depth state
+            | terminalTest game state = utility game state player
+            | cutoffTest state depth  = evalFn state player
+            | otherwise               = 
+                f posInf beta (map snd $ successors game state)
+                where
+                    f v beta []     = v
+                    f v beta (s:ss) = if v <= alpha
+                        then v
+                        else f v' (min beta v') ss
+                        where
+                            v' = min v (maxValue alpha beta (1+depth) s)
+
+        maxValue alpha beta depth state
+            | terminalTest game state = utility game state player
+            | cutoffTest state depth  = evalFn state player
+            | otherwise = 
+                g negInf alpha (map snd $ successors game state)
+                where
+                    g v alpha []     = v
+                    g v alpha (s:ss) = if v >= beta
+                        then v
+                        else g v' (max alpha v')  ss
+                        where
+                            v' = max v (minValue alpha beta (1+depth) s)
+
+-- |Version of alpha-beta search that cuts off the search at a depth limit,
+--  and uses the utility of a state as its evaluation function.
+alphaBetaSearch' :: (Game g s a) => Int -> g s a -> s -> a
+alphaBetaSearch' lim game state = alphaBetaSearch game cutoffFn evalFn state
+    where
+        cutoffFn state depth = depth > lim
+        evalFn = utility game
+
 ------------------
 -- Game Players --
 ------------------
@@ -117,8 +165,12 @@ minimaxPlayer :: Game g s a => g s a -> s -> IO a
 minimaxPlayer g s = return (minimaxDecision g s)
 
 -- |A player that uses full alpha/beta search to make its move.
-alphaBetaPlayer :: Game g s a => g s a -> s -> IO a
-alphaBetaPlayer g s = return (alphaBetaFullSearch g s)
+alphaBetaFullSearchPlayer :: Game g s a => g s a -> s -> IO a
+alphaBetaFullSearchPlayer g s = return (alphaBetaFullSearch g s)
+
+-- |A player that uses alpha/beta search with a cutoff.
+alphaBetaPlayer :: Game g s a => Int -> g s a -> s -> IO a
+alphaBetaPlayer n g s = return (alphaBetaSearch' n g s)
 
 -- |A player that chooses a move at random from all legal moves.
 randomPlayer :: Game g s a => g s a -> s -> IO a
@@ -259,3 +311,22 @@ kInARow k board (x,y) p (dx,dy) = n1 + n2 - 1 >= k
         bk = map (`M.lookup` board') ( zip [x,x-dx..] [y,y-dy..] )
         n1 = length $ takeWhile (== Just p) fw
         n2 = length $ takeWhile (== Just p) bk
+
+------------
+-- Connect 4
+
+data Connect4 s a = C (TicTacToe s a)
+
+connect4 :: Connect4 TTState TTMove
+connect4 = C (TTT 7 6 4)
+
+instance Game Connect4 TTState TTMove where
+    initial (C g) = initial g
+    toMove (C g) s = toMove g s
+
+    legalMoves (C g) s@(TTS board _ _ _) =
+        [ (x,y) | (x,y) <- legalMoves g s, y == 0 || (x,y-1) `M.member` board ]
+
+    makeMove (C g) move s = makeMove g move s
+    utility (C g) s p = utility g s p
+    terminalTest (C g) s = terminalTest g s
