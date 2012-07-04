@@ -216,8 +216,8 @@ bestFirstGraphSearch f = graphSearch (PQueue [] f)
 
 -- |Minimum cost search preferentially explores nodes with the lowest cost
 --  accrued, to guarantee that it finds the best path to the solution.
-minimumCostSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
-minimumCostSearch prob = bestFirstGraphSearch cost prob
+uniformCostSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
+uniformCostSearch prob = bestFirstGraphSearch cost prob
 
 -- |Greedy best-first search preferentially explores nodes with the lowest
 --  cost remaining to the goal, ignoring cost already accrued.
@@ -504,18 +504,13 @@ detailedCompareSearchers searchers names prob = do
 -- |Run all search algorithms over a few example problems.
 compareGraphSearchers :: IO ()
 compareGraphSearchers = do
-    compareSearchers searchers probs header rownames
+    compareSearchers searchers probs header probnames
     return ()
     where
-        searchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
-                    , depthFirstGraphSearch, iterativeDeepeningSearch
-                    , minimumCostSearch, greedyBestFirstSearch, aStarSearch']
-        probs = [gp1, gp2, gp3]
-        rownames = ["Romania(A,B)","Romania(O,N)","Australia"]
-        header = [ "Problem", "Breadth First Tree Search"
-                 , "Breadth First Graph Search", "Depth First Graph Search"
-                 , "Iterative Deepening Search", "MinimumCostSearch"
-                 , "GreedyBestFirstSearch", "A* Search"]
+        searchers = allSearchers
+        probs     = [gp1, gp2, gp3]
+        header    = "Problem" : allSearcherNames
+        probnames = ["Romania(A,B)","Romania(O,N)","Australia"]
 
 -- |Run all search algorithms over a particular problem and print out
 --  performance statistics.
@@ -525,8 +520,9 @@ runDetailedCompare = detailedCompareSearchers allSearchers allSearcherNames
 allSearchers :: (Problem p s a, Ord s) => [p s a -> Maybe (Node s a)]
 allSearchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
                , depthFirstGraphSearch, iterativeDeepeningSearch
-               , greedyBestFirstSearch, minimumCostSearch, aStarSearch']
+               , greedyBestFirstSearch, uniformCostSearch, aStarSearch']
 
-allSearcherNames = [ "BreadthFirstTreeSearch", "BreadthFirstGraphSearch"
-                   , "DepthFirstGraphSearch", "IterativeDeepeningSearch"
-                   , "GreedyBestFirstSearch", "MinimumCostSearch", "A*Search"]
+allSearcherNames = [ "Breadth First Tree Search", "Breadth First Graph Search"
+                   , "Depth First Graph Search", "Iterative Deepening Search"
+                   , "Greedy Best First Search", "Uniform Cost Search"
+                   , "A* Search"]
