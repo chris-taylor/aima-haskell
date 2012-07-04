@@ -51,8 +51,8 @@ class Game g s a where
 -- Search Algorithms --
 -----------------------
 
--- | Given a state in a game, calculate the best move by searching forward all
---   the way to the terminal states.
+-- |Given a state in a game, calculate the best move by searching forward all
+--  the way to the terminal states.
 minimaxDecision :: (Game g s a) => g s a -> s -> a
 minimaxDecision game state = a
     where
@@ -68,8 +68,8 @@ minimaxDecision game state = a
             then utility game s player
             else maximum [ minValue s' | (_,s') <- successors game s ]
 
--- | Search the game tree to determine the best action, using alpha-beta
---   pruning. This version searches all the way to the leaves.
+-- |Search the game tree to determine the best action, using alpha-beta
+--  pruning. This version searches all the way to the leaves.
 alphaBetaFullSearch :: (Game g s a) => g s a -> s -> a
 alphaBetaFullSearch game state = a
     where
