@@ -7,6 +7,7 @@ import Prelude hiding (catch)
 import Control.DeepSeq
 import Control.Exception
 import Data.Map (Map, (!))
+import Data.Maybe (catMaybes)
 import System.IO.Unsafe
 
 import qualified Data.List as L
@@ -23,6 +24,11 @@ type Utility = Double
 
 -- |Type used to distinguish between players
 data Player = Max | Min deriving (Eq,Show)
+
+-- |Return the opponent of the this player.
+opponent :: Player -> Player
+opponent Max = Min
+opponent Min = Max
 
 -- |A game is similar to a problem, but it has a utility for each
 --  state and a terminal test instead of a path cost and a goal
@@ -305,6 +311,10 @@ instance Show TTState where
             (h,_,_) = limsTT s
             row = (concat $ replicate (h-1) "-+") ++ "-\n"
 
+other :: TTCounter -> TTCounter
+other O = X
+other X = O
+
 toChars :: TTState -> [[Char]]
 toChars (TTS board _ _ (h,v,_)) = reverse $ map (map f) board'
     where
@@ -326,8 +336,6 @@ instance Game TicTacToe TTState TTMove where
 
     makeMove g move (TTS board p _ n) =
         let u = computeUtility g board move p
-            other O = X
-            other X = O
         in TTS (M.insert move p board) (other p) u n
 
     utility _ s p = let u = utilityTT s in if p == Max then u else -u
@@ -361,10 +369,59 @@ connect4 = C (TTT 7 6 4)
 instance Game Connect4 TTState TTMove where
     initial (C g) = initial g
     toMove (C g) s = toMove g s
+    makeMove (C g) move s = makeMove g move s
+    utility (C g) s p = utility g s p
+    terminalTest (C g) s = terminalTest g s
 
     legalMoves (C g) s@(TTS board _ _ _) =
         [ (x,y) | (x,y) <- legalMoves g s, y == 0 || (x,y-1) `M.member` board ]
 
-    makeMove (C g) move s = makeMove g move s
-    utility (C g) s p = utility g s p
-    terminalTest (C g) s = terminalTest g s
+    heuristic _ = heuristicC4
+
+-- Compute heuristics for Connect 4
+
+toListRep :: TTState -> [[Maybe TTCounter]]
+toListRep (TTS board _ _ (h,v,_)) =
+    [[ M.lookup (i,j) board | i <- [0..h-1] ] | j <- [0..v-1]]
+
+-- Winning lines
+
+heuristicC4 :: TTState -> Player -> Utility
+heuristicC4 s p = if u > 0 then posInf else fromIntegral (n1 - n2)
+    where
+        u  = if p == Max then utilityTT s else negate (utilityTT s)
+        n1 = numWinningLines p s
+        n2 = numWinningLines (opponent p) s
+
+numWinningLines :: Player -> TTState -> Int
+numWinningLines p s = length $ filter (isWinningLine $ counter p) allLines
+    where
+        allLines = concat [ linesInDir s (1,0), linesInDir s (0,1)
+                          , linesInDir s (1,1), linesInDir s (1,-1) ]
+        counter Max = O
+        counter Min = X
+
+isWinningLine :: TTCounter -> [Maybe TTCounter] -> Bool
+isWinningLine c xs = c `elem` ys && not (other c `elem` ys)
+    where
+        ys = catMaybes xs
+
+linesInDir :: TTState -> (Int,Int) -> [[Maybe TTCounter]]
+linesInDir s@(TTS board _ _ (h,v,k)) dir = 
+    map (\p -> lineThrough s p dir) pts
+    where
+        pts = case dir of
+            (1,0)  -> [ (x,y) | x <- [0..h-k], y <- [0..v-1] ]
+            (0,1)  -> [ (x,y) | x <- [0..h-1], y <- [0..v-k] ]
+            (1,1)  -> [ (x,y) | x <- [0..h-k], y <- [0..v-k] ]
+            (1,-1) -> [ (x,y) | x <- [0..h-k], y <- [k-1..v-1] ]
+
+lineThrough :: TTState -> (Int,Int) -> (Int,Int) -> [Maybe TTCounter]
+lineThrough (TTS board _ _ (h,v,k)) (x,y) (dx,dy) = 
+    take k $ map (`M.lookup` board) ( zip [x,x+dx..] [y,y+dy..] )
+
+-- Odd threats
+
+-- Even threats
+
+
