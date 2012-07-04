@@ -4,6 +4,9 @@ import qualified Data.List as L
 import qualified Data.Ord as O
 import qualified System.Random as R
 
+import Control.Exception
+import System.CPUTime
+
 -----------------
 -- Combinators --
 -----------------
@@ -67,4 +70,41 @@ randomChoiceIO [] = error "Empty list -- RANDOMCHOICEIO"
 randomChoiceIO xs = do
     n <- R.randomRIO (0,length xs - 1)
     return (xs !! n)
+
+--------------------
+-- IO Combinators -- 
+--------------------
+
+type Time = Double
+
+timed :: a -> IO (a, Time)
+timed x = do
+    t1 <- getCPUTime
+    r  <- evaluate x
+    t2 <- getCPUTime
+    let diff = fromIntegral (t2 - t1) / 10^12
+    return (r, diff)
+
+timeLimited :: Time -> [a] -> IO [a]
+timeLimited remaining []     = return []
+timeLimited remaining (x:xs) = if remaining < 0
+    then return []
+    else do
+        (y,t) <- timed x
+        ys    <- timeLimited (remaining - t) xs
+        return (y:ys)
+
+timeOut :: Time -> a -> IO (Maybe (a,t))
+timeOut = undefined
+
+timeLimited' :: Time -> [a] -> IO [a]
+timeLimited' remaining []     = return []
+timeLimited' remaining (x:xs) = do
+    result <- timeOut remaining x
+    case result of
+        Nothing    -> return []
+        Just (y,t) -> do
+            ys <- timeLimited' (remaining - t) xs
+            return (y:ys)
+
 
