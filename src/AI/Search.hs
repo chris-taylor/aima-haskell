@@ -62,9 +62,9 @@ class Eq s => Problem p s a where
 
     -- | For optimization problems, each state has a value. Hill-climbing and
     --   related algorithms try to maximise this value. The default
-    --  implementation always returns Nothing.
-    valueP :: p s a -> s -> Maybe Double
-    valueP _ = const Nothing
+    --  implementation always returns zero.
+    valueP :: p s a -> s -> Double
+    valueP _ = const 0
 
 -- |A node in a search tree. It contains a reference to its parent (the node
 --  that this is a successor of) and to the state for this node. Note that if
@@ -76,7 +76,7 @@ data Node s a = Node { state  :: s
                      , action :: Maybe a
                      , cost   :: Cost
                      , depth  :: Int
-                     , value  :: Maybe Double }
+                     , value  :: Double }
 
 instance (Show s, Show a) => Show (Node s a) where
     show (Node state _ action cost depth _) =
