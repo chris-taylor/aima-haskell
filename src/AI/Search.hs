@@ -524,7 +524,7 @@ allSearchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
                , greedyBestFirstSearch, uniformCostSearch, aStarSearch']
 
 -- |Names for the search algorithms in this module.
-allSearcheNames :: [String]
+allSearcherNames :: [String]
 allSearcherNames = [ "Breadth First Tree Search", "Breadth First Graph Search"
                    , "Depth First Graph Search", "Iterative Deepening Search"
                    , "Greedy Best First Search", "Uniform Cost Search"

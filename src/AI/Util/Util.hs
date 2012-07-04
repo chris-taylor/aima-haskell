@@ -4,8 +4,12 @@ import qualified Data.List as L
 import qualified Data.Ord as O
 import qualified System.Random as R
 
-import Control.Exception
+--import Control.Concurrent
+import Control.Concurrent.STM
+import Control.DeepSeq
+--import Control.Exception
 import System.CPUTime
+import System.Timeout
 
 -----------------
 -- Combinators --
@@ -75,36 +79,30 @@ randomChoiceIO xs = do
 -- IO Combinators -- 
 --------------------
 
-type Time = Double
-
-timed :: a -> IO (a, Time)
+-- |Compute a pure value and return it along with the number of microseconds
+--  taken for the computation.
+timed :: (NFData a) => a -> IO (a, Int)
 timed x = do
     t1 <- getCPUTime
-    r  <- evaluate x
+    r  <- return $!! x
     t2 <- getCPUTime
-    let diff = fromIntegral (t2 - t1) / 10^12
+    let diff = fromIntegral (t2 - t1) `div` 1000000
     return (r, diff)
 
-timeLimited :: Time -> [a] -> IO [a]
-timeLimited remaining []     = return []
-timeLimited remaining (x:xs) = if remaining < 0
-    then return []
-    else do
-        (y,t) <- timed x
-        ys    <- timeLimited (remaining - t) xs
-        return (y:ys)
+-- |Given a time limit (in microseconds) and a list, compute as many elements
+--  of the list as possible within the time limit.
+timeLimited :: (NFData a) => Int -> [a] -> IO [a]
+timeLimited t xs = do
+    v <- newTVarIO []
+    timeout t (forceIntoTVar v xs)
+    readTVarIO v
 
-timeOut :: Time -> a -> IO (Maybe (a,t))
-timeOut = undefined
+-- |Compute the elements of a list one by one, consing them onto the front
+--  of a @TVar@ as they are computed. Note that the result list will be
+--  in reverse order.
+forceIntoTVar :: (NFData a) => TVar [a] -> [a] -> IO ()
+forceIntoTVar v xs = mapM_ (forceCons v) xs
 
-timeLimited' :: Time -> [a] -> IO [a]
-timeLimited' remaining []     = return []
-timeLimited' remaining (x:xs) = do
-    result <- timeOut remaining x
-    case result of
-        Nothing    -> return []
-        Just (y,t) -> do
-            ys <- timeLimited' (remaining - t) xs
-            return (y:ys)
-
-
+-- |Force a pure value, and cons it onto the front of a list stored in a @TVar@.
+forceCons :: (NFData a) => TVar [a] -> a -> IO ()
+forceCons v x = x `deepseq` atomically $ modifyTVar v (x:)
