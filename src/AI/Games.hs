@@ -45,6 +45,11 @@ class Game g s a where
     -- | Return True if this is a final state for the game.
     terminalTest :: g s a -> s -> Bool
 
+    -- | You may want to define a heuristic function for the game, which
+    --   evaluates how good a position is.
+    heuristic :: g s a -> s -> Utility
+    heuristic _ = const 0
+
     -- | Return a list of legal (move, state) pairs
     successors :: g s a -> s -> [(a,s)]
     successors game s = [ (a, makeMove game a s) | a <- legalMoves game s ]
