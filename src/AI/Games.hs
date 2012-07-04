@@ -1,7 +1,9 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, TypeFamilies #-}
 
 module AI.Games where
 
+import Prelude hiding (catch)
+import Control.Exception
 import Data.Map (Map, (!))
 
 import qualified Data.List as L
@@ -157,8 +159,27 @@ alphaBetaSearch' lim game state = alphaBetaSearch game cutoffFn evalFn state
 type GamePlayer g s a = g s a -> s -> IO a
 
 -- |A human player - reads moves from stdin.
-queryPlayer :: (Game g s a, Show s, Read a) => g s a -> s -> IO a
-queryPlayer g s = putStr "Your move: " >> readLn
+queryPlayer :: (Game g s a, Show s, Show a, Read a, Eq a) => g s a -> s -> IO a
+queryPlayer g s = getMove
+    where
+        getMove = do
+            putStr "Your move: "
+            cs <- getLine
+            case cs of
+                ""  -> getMove
+                "?" -> showHelp >> getMove
+                "m" -> print (legalMoves g s) >> getMove
+                _   -> case reads cs of
+                        []    -> putStrLn "*** No parse" >> getMove
+                        (x:_) -> if fst x `elem` legalMoves g s
+                            then return (fst x)
+                            else putStrLn "*** Illegal move" >> getMove
+
+-- |Print instructions for a human player.
+showHelp :: IO ()
+showHelp = do
+    putStrLn "  ? -- display this help file"
+    putStrLn "  m -- display list of legal moves"
 
 -- |A player that uses the minimax algorithm to make its move.
 minimaxPlayer :: Game g s a => g s a -> s -> IO a

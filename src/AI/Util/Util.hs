@@ -4,10 +4,8 @@ import qualified Data.List as L
 import qualified Data.Ord as O
 import qualified System.Random as R
 
---import Control.Concurrent
 import Control.Concurrent.STM
 import Control.DeepSeq
---import Control.Exception
 import System.CPUTime
 import System.Timeout
 
