@@ -3,6 +3,8 @@
 ## General
 
 - Reorganization. Keep core algorithms in their current place, and move examples and interactive code to separate modules.
+- Improve Haddock documentation, including section headings.
+- Use either System.TimeIt or Criterion for timing calculations.
 
 ## Utils
 
