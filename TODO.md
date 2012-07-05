@@ -25,4 +25,7 @@
 - Depth-limited and iterative deepening minimax search
 - Alpha-beta search that orders nodes according to some heuristic before searching
 - GameIO data type that collects statistics as the game is played, e.g. number of nodes expanded, number of times heuristic function is called, time taken.
+- Move ordering function - possibly make this a method of the Game class, with a default implementation of
+    orderMoves :: [a] -> [a]
+    orderMoves = id
 - Stochastic games (using probability monad?)
