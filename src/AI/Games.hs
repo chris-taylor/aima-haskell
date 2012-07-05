@@ -180,18 +180,19 @@ type GamePlayer g s a = g s a -> s -> IO a
 queryPlayer :: (Game g s a, Show s, Show a, Read a, Eq a) => g s a -> s -> IO a
 queryPlayer g s = getMove
     where
-        getMove = do
-            putStr "Your move: "
-            cs <- getLine
-            case cs of
-                ""  -> getMove
-                "?" -> showHelp >> getMove
-                "m" -> print (legalMoves g s) >> getMove
-                _   -> case reads cs of
-                        []    -> putStrLn "*** No parse" >> getMove
-                        (x:_) -> if fst x `elem` legalMoves g s
-                            then return (fst x)
-                            else putStrLn "*** Illegal move" >> getMove
+        getMove = putStr "Your move: " >> getLine >>= interpret
+
+        interpret command = case command of
+            ""  -> getMove
+            "?" -> showHelp >> getMove
+            "m" -> print (legalMoves g s) >> getMove
+            _   -> parse command
+
+        parse command = case reads command of
+            []      -> putStrLn "*** No parse" >> getMove
+            (a,_):_ -> if a `elem` legalMoves g s
+                then return a
+                else putStrLn "*** Illegal move" >> getMove
 
 -- |Print instructions for a human player.
 showHelp :: IO ()
@@ -259,9 +260,9 @@ playGame game p1 p2 = go (initial game)
 -- Game Instances --
 --------------------
 
------------------------------
--- Example game (see Fig 5.2)
-
+----------------------------
+-- Example Game (Fig 5.2) --
+----------------------------
 
 -- |Data type representing the example game.
 data ExampleGame s a = ExampleGame deriving (Show)
@@ -297,8 +298,9 @@ instance Game ExampleGame String Int where
         then True
         else False
 
--------------------------------
--- Tic Tac Toe on a h x v board
+----------------------------------
+-- Tic Tac Toe on a H x V board --
+----------------------------------
 
 -- |Data type for K-in-a-row  tic tac toe, on a H x V board.
 data TicTacToe s a = TTT { hT :: Int, vT :: Int, kT :: Int } deriving (Show)
@@ -358,6 +360,8 @@ instance Game TicTacToe TTState TTMove where
 
     terminalTest g s = utilityTT s /= 0 || null (legalMoves g s)
 
+    heuristic _ = heuristicTTT [1,-1,0,0]
+
 -- |Helper function that computes the utility of a state after a particular
 --  move is played.
 computeUtility :: TTState -> TTMove -> Utility
@@ -402,8 +406,9 @@ toChars (TTS board _ _ (h,v,_)) = reverse $ map (map f) board'
         f (Just X) = 'X'
         f Nothing  = ' '
 
-------------
--- Connect 4
+---------------
+-- Connect 4 --
+---------------
 
 -- |The 'Connect4' data type is a wrapper around 'TicTacToe', which allows us
 --  to inherit most of its behaviour.
@@ -425,13 +430,17 @@ instance Game Connect4 TTState TTMove where
     legalMoves (C g) s@(TTS board _ _ _) =
         [ (x,y) | (x,y) <- legalMoves g s, y == 0 || (x,y-1) `M.member` board ]
 
-    heuristic _ = heuristicC4 [0.1,-0.1,1,-1]
+    heuristic _ = heuristicTTT [0.1,-0.1,1,-1]
 
--- |A heuristic function for Connect 4. If the game is won or lost, a value of
+------------------------
+-- Compute heuristics --
+------------------------
+
+-- |A heuristic function for Tic Tac Toe. If the game is won or lost, a value of
 --  positive or negative infinity is assigned. Otherwise the value is a weighted
 --  combination of simpler heuristic functions.
-heuristicC4 :: [Double] -> TTState -> Player -> Utility
-heuristicC4 weights s p
+heuristicTTT :: [Double] -> TTState -> Player -> Utility
+heuristicTTT weights s p
     | u > 0 = posInf
     | u < 0 = negInf
     | otherwise = sum $ zipWith (*) weights [n1,n2,n3,n4]
@@ -488,3 +497,4 @@ linesInDir s@(TTS board _ _ (h,v,k)) dir =
 lineThrough :: TTState -> (Int,Int) -> (Int,Int) -> [Maybe TTCounter]
 lineThrough (TTS board _ _ (h,v,k)) (x,y) (dx,dy) = 
     take k $ map (`M.lookup` board) ( zip [x,x+dx..] [y,y+dy..] )
+    
