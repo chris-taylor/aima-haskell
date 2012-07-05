@@ -14,6 +14,7 @@ import System.IO.Unsafe
 
 import qualified Data.List as L
 import qualified Data.Map as M
+import qualified Data.Ord as O
 import qualified System.Random as R
 
 import AI.Util.Util
@@ -56,6 +57,12 @@ class Game g s a where
     -- | Return True if this is a final state for the game.
     terminalTest :: g s a -> s -> Bool
 
+    -- | Sort a list of moves from best to worst. The default implementation is
+    --   to do no sorting, but you may want to override this as it can
+    --   significantly improve the performance of alpha/beta search.
+    sortMoves :: g s a -> [a] -> [a]
+    sortMoves _ = id
+
     -- | You may want to define a heuristic function for the game, which
     --   evaluates how good a position is.
     heuristic :: g s a -> s -> Player -> Utility
@@ -63,7 +70,9 @@ class Game g s a where
 
     -- | Return a list of legal (move, state) pairs
     successors :: g s a -> s -> [(a,s)]
-    successors game s = [ (a, makeMove game a s) | a <- legalMoves game s ]
+    successors game s = [ (a, makeMove game a s) | a <- moves ]
+        where
+            moves = sortMoves game (legalMoves game s)
 
 -----------------------
 -- Search Algorithms --
@@ -284,6 +293,7 @@ instance (Game g s a) => Game (GameIO g) s a where
     legalMoves   (GIO g _ _ _) s = legalMoves g s
     makeMove     (GIO g _ _ v) a s = makeMove g a s
     utility      (GIO g _ _ _) s p = utility g s p
+    sortMoves    (GIO g _ _ _) as  = sortMoves g as
     heuristic    (GIO g _ _ _) s p = heuristic g s p
 
     terminalTest (GIO g i _ _) s = unsafePerformIO $ do
@@ -472,13 +482,17 @@ connect4 :: Connect4 TTState TTMove
 connect4 = C (TTT 7 6 4)
 
 -- |A Connect 4 game is identical to tic tac toe in most respects. It differs in
---  the set of legal moves, and the heuristic function.
+--  the set of legal moves, the fact that it sorts moves so that those closest
+--  to the center are considered first, and the heuristic function.
 instance Game Connect4 TTState TTMove where
     initial      (C g)        = initial g
     toMove       (C g) s      = toMove g s
     makeMove     (C g) move s = makeMove g move s
     utility      (C g) s p    = utility g s p
     terminalTest (C g) s      = terminalTest g s
+
+    sortMoves (C (TTT h _ _)) as = L.sortBy (O.comparing f) as
+        where f (_,y) = abs (y - h `div` 2)
 
     legalMoves (C g) s@(TTS board _ _ _) =
         [ (x,y) | (x,y) <- legalMoves g s, y == 0 || (x,y-1) `M.member` board ]
