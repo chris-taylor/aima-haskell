@@ -1,6 +1,13 @@
 module AI.Util.Table (printTable) where
 
-printTable :: Show a => Int -> [[a]] -> [String] -> [String] -> IO ()
+-- |Print a table of data to stdout. You must supply the column width (number
+--  of chars) and a list of row and column names.
+printTable :: Show a =>
+              Int       -- ^ Column width
+           -> [[a]]     -- ^ Data
+           -> [String]  -- ^ Column names (including the 0th column)
+           -> [String]  -- ^ Row names
+           -> IO ()
 printTable pad xs header rownames = do
     let horzLines = replicate (length header) (replicate pad '-')
     printRow pad horzLines
@@ -10,6 +17,7 @@ printTable pad xs header rownames = do
     mapM_ (printRow pad) rows
     printRow pad horzLines
 
+-- |Print a single row of a table.
 printRow :: Int -> [String] -> IO ()
 printRow pad xs = do
     let ys = map (trim pad) xs
