@@ -2,6 +2,7 @@
 
 module AI.Search where
 
+import Control.DeepSeq
 import Control.Monad
 import Data.IORef
 import Data.Map (Map)
@@ -459,6 +460,24 @@ testSearcher prob searcher = do
         j <- readIORef numSuccs
         k <- readIORef numStates
         return (result, i, j, k)
+
+-- |NFData instance for search nodes.
+instance (NFData s, NFData a) => NFData (Node s a) where
+    rnf (Node state parent action cost depth value) = 
+        state `seq` parent `seq` action `seq`
+        cost `seq`depth `seq` value `seq`
+        Node state parent action cost depth value `seq` ()
+
+-- |Run a search algorithm over a problem, returning the time it took as well
+--  as other statistics.
+testSearcher' :: (NFData t) => p s a -> (ProblemIO p s a -> t) -> IO (t,Int,Int,Int,Int)
+testSearcher' prob searcher = do
+    p@(PIO _ numGoalChecks numSuccs numStates) <- mkProblemIO prob
+    (result, t) <- timed (searcher p)
+    i <- readIORef numGoalChecks
+    j <- readIORef numSuccs
+    k <- readIORef numStates
+    return (result, t, i, j, k)
 
 -- |Test multiple searchers on the same problem, and return a list of results
 --  and statistics.
