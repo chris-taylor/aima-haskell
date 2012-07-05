@@ -103,8 +103,8 @@ forceIntoTVar v xs = mapM_ (forceCons v) xs
 
 -- |Force a pure value, and cons it onto the front of a list stored in a @TVar@.
 forceCons :: (NFData a) => TVar [a] -> a -> IO ()
-forceCons v x = x `deepseq` atomically $ modifyTVar v (x:)
+forceCons v x = x `deepseq` atomically $ modifyTVar2 v (x:)
 
 -- |Modify the value of a transactional variable
-modifyTVar :: TVar a -> (a -> a) -> STM ()
-modifyTVar v f = readTVar v >>= writeTVar v . f
+modifyTVar2 :: TVar a -> (a -> a) -> STM ()
+modifyTVar2 v f = readTVar v >>= writeTVar v . f

@@ -6,6 +6,7 @@ import Prelude hiding (catch)
 
 import Control.DeepSeq
 import Control.Exception
+import Control.Monad
 import Data.Map (Map, (!))
 import Data.Maybe (catMaybes)
 import System.IO.Unsafe
@@ -130,7 +131,6 @@ alphaBetaSearch game cutoffTest evalFn state = a
         (a,_)  = argMax succs (minValue negInf posInf 0 . snd)
 
         minValue alpha beta depth state
-            | terminalTest game state = utility game state player
             | cutoffTest state depth  = evalFn state player
             | otherwise               = 
                 f posInf beta (map snd $ successors game state)
@@ -143,7 +143,6 @@ alphaBetaSearch game cutoffTest evalFn state = a
                             v' = min v (maxValue alpha beta (1+depth) s)
 
         maxValue alpha beta depth state
-            | terminalTest game state = utility game state player
             | cutoffTest state depth  = evalFn state player
             | otherwise = 
                 g negInf alpha (map snd $ successors game state)
@@ -160,13 +159,13 @@ alphaBetaSearch game cutoffTest evalFn state = a
 alphaBetaSearch' :: (Game g s a) => Int -> g s a -> s -> a
 alphaBetaSearch' lim game state = alphaBetaSearch game cutoffFn evalFn state
     where
-        cutoffFn state depth = depth > lim
+        cutoffFn state depth = terminalTest game state || depth > lim
         evalFn = heuristic game
 
-iterativeAlphaBeta :: (NFData a, Game g s a) => Int -> g s a -> s -> a
-iterativeAlphaBeta t game state = head (unsafePerformIO result)
-    where
-        result = timeLimited t $ map (\d -> alphaBetaSearch' d game state) [0..]
+-- |Repeatedly try depth-limited alpha-beta search with an increasing depth
+--  limit.
+iterativeAlphaBeta :: (NFData a, Game g s a) => g s a -> s -> [a]
+iterativeAlphaBeta game state = map (\d -> alphaBetaSearch' d game state) [0..]
 
 ------------------
 -- Game Players --
@@ -212,9 +211,13 @@ alphaBetaFullSearchPlayer g s = return (alphaBetaFullSearch g s)
 alphaBetaPlayer :: Game g s a => Int -> g s a -> s -> IO a
 alphaBetaPlayer n g s = return (alphaBetaSearch' n g s)
 
--- |A player that uses iterative deepening alpha/beta search.
-iterativeAlphaBetaPlayer :: (NFData a, Game g s a) => Int -> g s a -> s -> IO a
-iterativeAlphaBetaPlayer t g s = return (iterativeAlphaBeta t g s)
+-- |A player that uses iterative deepening alpha/beta search, looking as deep
+--  into the search tree as possible in the time limit (measured in seconds).
+iterativeAlphaBetaPlayer :: (NFData a, Game g s a) => Double -> g s a -> s -> IO a
+iterativeAlphaBetaPlayer t g s = liftM head (timeLimited lim result)
+    where
+        lim    = round (t * 1000000)
+        result = iterativeAlphaBeta g s
 
 -- |A player that chooses a move at random from all legal moves.
 randomPlayer :: Game g s a => g s a -> s -> IO a
@@ -259,12 +262,17 @@ playGame game p1 p2 = go (initial game)
 -----------------------------
 -- Example game (see Fig 5.2)
 
-data GameExample s a = GameExample deriving (Show)
 
-g :: GameExample String Int
-g = GameExample
+-- |Data type representing the example game.
+data ExampleGame s a = ExampleGame deriving (Show)
 
-instance Game GameExample String Int where
+-- |Instance of the example game.
+exampleGame :: ExampleGame String Int
+exampleGame = ExampleGame
+
+-- |Definition of the example game in Fig 5.2 (mainly useful as an example of
+--  how to create games).
+instance Game ExampleGame String Int where
     initial g = "A"
 
     toMove g "A" = Max
@@ -292,40 +300,48 @@ instance Game GameExample String Int where
 -------------------------------
 -- Tic Tac Toe on a h x v board
 
+-- |Data type for K-in-a-row  tic tac toe, on a H x V board.
 data TicTacToe s a = TTT { hT :: Int, vT :: Int, kT :: Int } deriving (Show)
 
+-- |A move in tic tac toe is a pair of integers indicating the row and column,
+--  indexed from zero.
 type TTMove = (Int,Int)
-type TTBoard = Map TTMove TTCounter
+
+-- |Each counter in tic-tac-toe is either an @O@ or an @X@.
 data TTCounter = O | X deriving (Eq,Show)
 
+-- |A tic tac toe board is a map from board positions to counters. Note that
+--  @M.lookup (x,y) board@ will return @Nothing@ if square @(x,y)@ is empty. 
+type TTBoard = Map TTMove TTCounter
+
+-- |The state of a tic tac toe game is defined by the board. We also store the
+--  player whose move is next, the utility of this state (which is only nonzero
+--  if the state is terminal) and the size of the board, for convenience.
 data TTState = TTS
     { boardTT :: TTBoard
     , toMoveTT :: TTCounter
     , utilityTT :: Utility
     , limsTT :: (Int,Int,Int) }
 
-instance Show TTState where
-    show s = concat $ L.intersperse row $
-                map ((++"\n") . L.intersperse '|') (toChars s)
-        where
-            (h,_,_) = limsTT s
-            row = (concat $ replicate (h-1) "-+") ++ "-\n"
+-- |A 3x3 instance of tic tac toe.
+ticTacToe :: TicTacToe TTState TTMove
+ticTacToe = TTT 3 3 3
 
+-- |A useful function that interchanges @O@s and @X@s.
 other :: TTCounter -> TTCounter
 other O = X
 other X = O
 
-toChars :: TTState -> [[Char]]
-toChars (TTS board _ _ (h,v,_)) = reverse $ map (map f) board'
-    where
-        board' = [ [ M.lookup (i,j) board | i <- [0..h-1] ] | j <- [0..v-1] ]
-        f (Just O) = 'O'
-        f (Just X) = 'X'
-        f Nothing  = ' '
+-- |In our game, @Max@ always plays the @O@ counter and @Min@ plays @X@.
+counter :: Player -> TTCounter
+counter Max = O
+counter Min = X
 
-ticTacToe :: TicTacToe TTState TTMove
-ticTacToe = TTT 3 3 3
-
+-- |This 'Game' instance defines the rules of tic tac toe. Note that whenever
+--  a move is made, we compute the utility of the newly created state on the
+--  fly. This avoids having to write an expensive function to decide if any
+--  player has won for a specific board state. The game is over when either
+--  a player has one, or there are no legal moves left to make.
 instance Game TicTacToe TTState TTMove where
     initial (TTT h v k) = TTS M.empty O 0 (h,v,k)
 
@@ -334,29 +350,53 @@ instance Game TicTacToe TTState TTMove where
     legalMoves (TTT h v _) (TTS board _ _ _) =
         [ (i,j) | i <- [0..h-1], j <- [0..v-1], M.notMember (i,j) board ]
 
-    makeMove g move (TTS board p _ n) =
-        let u = computeUtility g board move p
+    makeMove g move s@(TTS board p _ n) =
+        let u = computeUtility s move
         in TTS (M.insert move p board) (other p) u n
 
     utility _ s p = let u = utilityTT s in if p == Max then u else -u
 
     terminalTest g s = utilityTT s /= 0 || null (legalMoves g s)
 
-computeUtility :: TicTacToe TTState TTMove -> TTBoard -> TTMove -> TTCounter -> Utility
-computeUtility (TTT _ _ k) board move player = 
-    if f (0,1) || f (1,0)  || f (1,1) || f (1,-1)
-        then if player == O then 1 else -1
-        else 0
-        where f x = kInARow k board move player x
+-- |Helper function that computes 
+computeUtility :: TTState -> TTMove -> Utility
+computeUtility s@(TTS _ player _ _) move = if kInARow s move player
+    then if player == O then 1 else -1
+    else 0
 
-kInARow :: Int -> TTBoard -> TTMove -> TTCounter -> (Int,Int) -> Bool
-kInARow k board (x,y) p (dx,dy) = n1 + n2 - 1 >= k
+-- |ss
+kInARow :: TTState -> TTMove -> TTCounter -> Bool
+kInARow state move player = f (1,0) || f (0,1) || f (1,1) || f (1,-1)
+    where
+        f = kInARow' state move player
+
+kInARow' :: TTState -> TTMove -> TTCounter -> (Int,Int) -> Bool
+kInARow' (TTS board _ _ (_,_,k)) (x,y) p (dx,dy) = n1 + n2 - 1 >= k
     where
         board' = M.insert (x,y) p board
         fw = map (`M.lookup` board') ( zip [x,x+dx..] [y,y+dy..] )
         bk = map (`M.lookup` board') ( zip [x,x-dx..] [y,y-dy..] )
         n1 = length $ takeWhile (== Just p) fw
         n2 = length $ takeWhile (== Just p) bk
+
+-- |The Show instance for 'TTState' creates a human-readable representation of
+--  the board.
+instance Show TTState where
+    show s = concat $ L.intersperse row $
+                map ((++"\n") . L.intersperse '|') (toChars s)
+        where
+            (h,_,_) = limsTT s
+            row = (concat $ replicate (h-1) "-+") ++ "-\n"
+
+-- |A helper function for @Show TTState@ that converts each position on the
+--  board to its @Char@ representation.
+toChars :: TTState -> [[Char]]
+toChars (TTS board _ _ (h,v,_)) = reverse $ map (map f) board'
+    where
+        board' = [ [ M.lookup (i,j) board | i <- [0..h-1] ] | j <- [0..v-1] ]
+        f (Just O) = 'O'
+        f (Just X) = 'X'
+        f Nothing  = ' '
 
 ------------
 -- Connect 4
@@ -367,16 +407,16 @@ connect4 :: Connect4 TTState TTMove
 connect4 = C (TTT 7 6 4)
 
 instance Game Connect4 TTState TTMove where
-    initial (C g) = initial g
-    toMove (C g) s = toMove g s
-    makeMove (C g) move s = makeMove g move s
-    utility (C g) s p = utility g s p
-    terminalTest (C g) s = terminalTest g s
+    initial      (C g)        = initial g
+    toMove       (C g) s      = toMove g s
+    makeMove     (C g) move s = makeMove g move s
+    utility      (C g) s p    = utility g s p
+    terminalTest (C g) s      = terminalTest g s
 
     legalMoves (C g) s@(TTS board _ _ _) =
         [ (x,y) | (x,y) <- legalMoves g s, y == 0 || (x,y-1) `M.member` board ]
 
-    heuristic _ = heuristicC4
+    heuristic _ = heuristicC4 [0.1,-0.1,1,-1]
 
 -- Compute heuristics for Connect 4
 
@@ -386,12 +426,17 @@ toListRep (TTS board _ _ (h,v,_)) =
 
 -- Winning lines
 
-heuristicC4 :: TTState -> Player -> Utility
-heuristicC4 s p = if u > 0 then posInf else fromIntegral (n1 - n2)
+heuristicC4 :: [Double] -> TTState -> Player -> Utility
+heuristicC4 weights s p
+    | u > 0 = posInf
+    | u < 0 = negInf
+    | otherwise = sum $ zipWith (*) weights (map fromIntegral [n1,n2,n3,n4])
     where
         u  = if p == Max then utilityTT s else negate (utilityTT s)
         n1 = numWinningLines p s
         n2 = numWinningLines (opponent p) s
+        n3 = numThreats p s
+        n4 = numThreats (opponent p) s
 
 numWinningLines :: Player -> TTState -> Int
 numWinningLines p s = length $ filter (isWinningLine $ counter p) allLines
@@ -420,8 +465,13 @@ lineThrough :: TTState -> (Int,Int) -> (Int,Int) -> [Maybe TTCounter]
 lineThrough (TTS board _ _ (h,v,k)) (x,y) (dx,dy) = 
     take k $ map (`M.lookup` board) ( zip [x,x+dx..] [y,y+dy..] )
 
--- Odd threats
+-- Number of threats
 
--- Even threats
+numThreats :: Player -> TTState -> Int
+numThreats p s@(TTS _ _ _ (h,v,_)) = length $ filter (isThreat s p) xs
+    where
+        xs = [ (i,j) | i <- [0..h-1], j <- [0..v-1] ]
 
-
+isThreat :: TTState -> Player -> (Int,Int) -> Bool
+isThreat s@(TTS board _ _ _) p (x,y) =
+    y /= 0 && (x,y-1) `M.notMember` board && kInARow s (x,y) (counter p)
