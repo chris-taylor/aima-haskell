@@ -193,10 +193,11 @@ queryPlayer g s = getMove
         getMove = putStr "Your move: " >> getLine >>= interpret
 
         interpret command = case command of
-            ""  -> getMove
+            ""   -> getMove
             "?" -> showHelp >> getMove
             "m" -> print (legalMoves g s) >> getMove
-            _   -> parse command
+            "q" -> error "Quitting game!"
+            _    -> parse command
 
         parse command = case reads command of
             []      -> putStrLn "*** No parse" >> getMove
@@ -204,11 +205,10 @@ queryPlayer g s = getMove
                 then return a
                 else putStrLn "*** Illegal move" >> getMove
 
--- |Print instructions for a human player.
-showHelp :: IO ()
-showHelp = do
-    putStrLn "  ? -- display this help file"
-    putStrLn "  m -- display list of legal moves"
+        showHelp = do
+            putStrLn "  ? -- display this help file"
+            putStrLn "  m -- display list of legal moves"
+            putStrLn "  q -- quit the game"
 
 -- |A player that uses the minimax algorithm to make its move.
 minimaxPlayer :: Game g s a => g s a -> s -> IO a
@@ -453,21 +453,21 @@ kInARow' (TTS board _ _ (_,_,k)) (x,y) p (dx,dy) = n1 + n2 - 1 >= k
 -- |The Show instance for 'TTState' creates a human-readable representation of
 --  the board.
 instance Show TTState where
-    show s = concat $ L.intersperse row $
-                map ((++"\n") . L.intersperse '|') (toChars s)
+    show s = concat $ concat $ L.intersperse [row] $
+                map ((++["\n"]) . L.intersperse "|") (toChars s)
         where
             (h,_,_) = limsTT s
-            row = (concat $ replicate (h-1) "-+") ++ "-\n"
+            row = (concat $ replicate (h-1) "---+") ++ "---\n"
 
 -- |A helper function for @Show TTState@ that converts each position on the
 --  board to its @Char@ representation.
-toChars :: TTState -> [[Char]]
+toChars :: TTState -> [[String]]
 toChars (TTS board _ _ (h,v,_)) = reverse $ map (map f) board'
     where
         board' = [ [ M.lookup (i,j) board | i <- [0..h-1] ] | j <- [0..v-1] ]
-        f (Just O) = 'O'
-        f (Just X) = 'X'
-        f Nothing  = ' '
+        f (Just O) = " O "
+        f (Just X) = " X "
+        f Nothing  = "   "
 
 ---------------
 -- Connect 4 --
