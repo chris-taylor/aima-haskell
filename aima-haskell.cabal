@@ -28,6 +28,7 @@ Library
     Exposed-Modules:    AI.Search
                         AI.Games
                         AI.Probability
+                        AI.ConstraintSatisfaction
                         AI.Util.Graph
                         AI.Util.Queue
                         AI.Util.Table
