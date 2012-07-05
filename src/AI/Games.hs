@@ -325,20 +325,6 @@ data TTState = TTS
     , utilityTT :: Utility
     , limsTT :: (Int,Int,Int) }
 
--- |A 3x3 instance of tic tac toe.
-ticTacToe :: TicTacToe TTState TTMove
-ticTacToe = TTT 3 3 3
-
--- |A useful function that interchanges @O@s and @X@s.
-other :: TTCounter -> TTCounter
-other O = X
-other X = O
-
--- |In our game, @Max@ always plays the @O@ counter and @Min@ plays @X@.
-counter :: Player -> TTCounter
-counter Max = O
-counter Min = X
-
 -- |This 'Game' instance defines the rules of tic tac toe. Note that whenever
 --  a move is made, we compute the utility of the newly created state on the
 --  fly. This avoids having to write an expensive function to decide if any
@@ -361,6 +347,20 @@ instance Game TicTacToe TTState TTMove where
     terminalTest g s = utilityTT s /= 0 || null (legalMoves g s)
 
     heuristic _ = heuristicTTT [1,-1,0,0]
+
+-- |A 3x3 instance of tic tac toe.
+ticTacToe :: TicTacToe TTState TTMove
+ticTacToe = TTT 3 3 3
+
+-- |A useful function that interchanges @O@s and @X@s.
+other :: TTCounter -> TTCounter
+other O = X
+other X = O
+
+-- |In our game, @Max@ always plays the @O@ counter and @Min@ plays @X@.
+counter :: Player -> TTCounter
+counter Max = O
+counter Min = X
 
 -- |Helper function that computes the utility of a state after a particular
 --  move is played.
