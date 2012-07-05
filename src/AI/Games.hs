@@ -265,9 +265,9 @@ playGame game p1 p2 = go (initial game)
 --  game is played.
 data GameIO g s a = GIO
     { gameIO    :: g s a
+    , numTerm   :: IORef Int
     , numSucc   :: IORef Int
-    , numExpand :: IORef Int
-    , numMoves  :: IORef Int }
+    , numStates :: IORef Int }
 
 -- |Wrap a game up in the GameIO type.
 mkGameIO :: g s a -> IO (GameIO g s a)
@@ -282,33 +282,32 @@ instance (Game g s a) => Game (GameIO g) s a where
     initial      (GIO g _ _ _) = initial g
     toMove       (GIO g _ _ _) s = toMove g s
     legalMoves   (GIO g _ _ _) s = legalMoves g s
+    makeMove     (GIO g _ _ v) a s = makeMove g a s
     utility      (GIO g _ _ _) s p = utility g s p
-    terminalTest (GIO g _ _ _) s = terminalTest g s
     heuristic    (GIO g _ _ _) s p = heuristic g s p
 
-    makeMove (GIO g _ _ v) a s = unsafePerformIO $ do
-        modifyIORef v (+1)
-        return (makeMove g a s)
-
-    successors (GIO g i j _) s = unsafePerformIO $ do
-        let succs = successors g s
+    terminalTest (GIO g i _ _) s = unsafePerformIO $ do
         modifyIORef i (+1)
-        modifyIORef j (+length succs)
+        return (terminalTest g s)
+
+    successors (GIO g _ j k) s = unsafePerformIO $ do
+        let succs = successors g s
+        modifyIORef j (+1)
+        modifyIORef k (+length succs)
         return succs
 
 -- |Play a game, collecting statistics as we go.
-playGameIO :: (Show s, Show a, Game g s a) =>
-              g s a
-           -> GamePlayer (GameIO g) s a
-           -> GamePlayer (GameIO g) s a
-           -> IO (Utility, Int, Int, Int)
-playGameIO game p1 p2 = do
+runPlayerIO :: g s a
+            -> s
+            -> (GameIO g s a -> s -> a)
+            -> IO (a,Int,Int,Int)
+runPlayerIO game state player = do
     g@(GIO _ numSucc numExpand numMoves) <- mkGameIO game
-    utility <- playGame g p1 p2
-    i <- readIORef numSucc
-    j <- readIORef numExpand
-    k <- readIORef numMoves
-    return (utility, i, j, k)
+    let action = player g state in action `seq` do
+        i <- readIORef numSucc
+        j <- readIORef numExpand
+        k <- readIORef numMoves
+        return (action, i, j, k)
 
 --------------------
 -- Game Instances --
