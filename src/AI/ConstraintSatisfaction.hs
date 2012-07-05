@@ -4,8 +4,10 @@ module AI.ConstraintSatisfaction where
 
 import Data.Map (Map, (!))
 
+import qualified Data.List as L
 import qualified Data.Map as M
 
+import AI.Util.Queue
 import AI.Util.Util
 
 -- |This class describes finite-domain Constraint Satisfaction Problems.
@@ -76,5 +78,32 @@ class Ord var => CSP c var val where
             noConflicts v = 
                 nConflicts csp v (assignment ! v) assignment == 0
 
+--------------------------------------
+-- Constraint Propagation with AC-3 --
+--------------------------------------
+
+-- |Returns @False@ if an inconsistency is found and @True@ otherwise.
+ac3 :: (CSP c var val, Queue q) => c var val -> q (var,var) -> Bool
+ac3 csp queue = go (extend xs queue)
+    where
+        xs = [ (xi, xk) | xi <- vars csp, xk <- nbr ! xi ]
+
+        go queue = if empty queue
+            then True
+            else if removeInconsistentValues csp xi xj
+                    then if length (dom ! xi) == 0
+                            then False
+                            else go (extend (map (\y -> (y,xi)) (L.delete xj (nbr ! xi))) rest)
+                    else True
+
+            where
+                ((xi,xj), rest) = pop queue
+
+        dom = domains csp
+
+        nbr = neighbours csp
+
+removeInconsistentValues :: CSP c var val => c var val -> var -> var -> Bool
+removeInconsistentValues = undefined
 
 
