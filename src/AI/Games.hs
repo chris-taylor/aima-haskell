@@ -7,6 +7,7 @@ import Prelude hiding (catch)
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad
+import Data.IORef
 import Data.Map (Map, (!))
 import Data.Maybe (catMaybes)
 import System.IO.Unsafe
@@ -256,6 +257,59 @@ playGame game p1 p2 = go (initial game)
                 player  = toMove game state
                 getMove = if player == Max then p1 else p2
 
+---------------------
+-- Game Statistics --
+---------------------
+
+-- |Wrapper for a game that adds semantics for collecting statistics as the 
+--  game is played.
+data GameIO g s a = GIO
+    { gameIO    :: g s a
+    , numSucc   :: IORef Int
+    , numExpand :: IORef Int
+    , numMoves  :: IORef Int }
+
+-- |Wrap a game up in the GameIO type.
+mkGameIO :: g s a -> IO (GameIO g s a)
+mkGameIO g = do
+    i <- newIORef 0
+    j <- newIORef 0
+    k <- newIORef 0
+    return (GIO g i j k)
+
+-- |Make GameIO into an instance of Game.
+instance (Game g s a) => Game (GameIO g) s a where
+    initial      (GIO g _ _ _) = initial g
+    toMove       (GIO g _ _ _) s = toMove g s
+    legalMoves   (GIO g _ _ _) s = legalMoves g s
+    utility      (GIO g _ _ _) s p = utility g s p
+    terminalTest (GIO g _ _ _) s = terminalTest g s
+    heuristic    (GIO g _ _ _) s p = heuristic g s p
+
+    makeMove (GIO g _ _ v) a s = unsafePerformIO $ do
+        modifyIORef v (+1)
+        return (makeMove g a s)
+
+    successors (GIO g i j _) s = unsafePerformIO $ do
+        let succs = successors g s
+        modifyIORef i (+1)
+        modifyIORef j (+length succs)
+        return succs
+
+-- |Play a game, collecting statistics as we go.
+playGameIO :: (Show s, Show a, Game g s a) =>
+              g s a
+           -> GamePlayer (GameIO g) s a
+           -> GamePlayer (GameIO g) s a
+           -> IO (Utility, Int, Int, Int)
+playGameIO game p1 p2 = do
+    g@(GIO _ numSucc numExpand numMoves) <- mkGameIO game
+    utility <- playGame g p1 p2
+    i <- readIORef numSucc
+    j <- readIORef numExpand
+    k <- readIORef numMoves
+    return (utility, i, j, k)
+
 --------------------
 -- Game Instances --
 --------------------
@@ -497,4 +551,3 @@ linesInDir s@(TTS board _ _ (h,v,k)) dir =
 lineThrough :: TTState -> (Int,Int) -> (Int,Int) -> [Maybe TTCounter]
 lineThrough (TTS board _ _ (h,v,k)) (x,y) (dx,dy) = 
     take k $ map (`M.lookup` board) ( zip [x,x+dx..] [y,y+dy..] )
-    
