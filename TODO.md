@@ -29,3 +29,6 @@
     orderMoves :: [a] -> [a]
     orderMoves = id
 - Stochastic games (using probability monad?)
+
+## Probability
+- Documentation

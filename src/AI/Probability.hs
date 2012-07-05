@@ -56,6 +56,7 @@ collect (D xs) = D $ M.toList $ M.fromListWith (+) xs
 -- Numeric Functions --
 -----------------------
 
+-- |Approximate floating point equality, with a tolerance of 1 part in 1000.
 (=~) :: (Ord a, Fractional a) => a -> a -> Bool
 x =~ y = abs (x/y - 1) < 0.001
 
@@ -63,6 +64,7 @@ x =~ y = abs (x/y - 1) < 0.001
 -- Convert to Float --
 ----------------------
 
+-- |Type class for data which can be converted to a floating point number.
 class ToFloat a where
     toFloat :: a -> Float
 
@@ -82,6 +84,12 @@ instance ToFloat Integer where
 -- Functions on Distributions --
 --------------------------------
 
+-- |Compute the expectation of a numeric distribution. The expectation is
+--  defined to be
+--
+--  > sum (x_i * p_i) for i = 1 .. end
+--
+--  This is only defined for distributions over data that can be cast to Float.
 expectation :: ToFloat a => Dist a -> Prob
 expectation (D xs) = sum $ [ toFloat x * p | (x,p) <- xs ]
 
@@ -89,9 +97,12 @@ expectation (D xs) = sum $ [ toFloat x * p | (x,p) <- xs ]
 -- Probability Distributions --
 -------------------------------
 
+-- |The Bernoulli distribution takes one of two possible values.
 bernoulli :: Prob -> a -> a -> Dist a
 bernoulli p a b = D [(a,p), (b,1-p)]
 
+-- |A uniform distribution over a finite list assigns equal probability to each
+--  of the elements of the list.
 uniform :: [a] -> Dist a
 uniform xs = D $ zip xs (repeat p) where p = 1 / fromIntegral (length xs)
 
