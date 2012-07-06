@@ -414,26 +414,29 @@ randomGraphMap n minLinks width height = ST.execStateT (do
     replicateM n mkLocation >>= ST.put . mkGraphMap [] . zip nodes
 
     forM_ nodes $ \x -> do
-    
-        ST.modify (addEmpty x)
-        graph@(G _ loc) <- ST.get
 
-        let nbrs     = map fst (getNeighbours x graph)
+        ST.modify (addEmpty x)
+        g @ (G _ loc) <- ST.get
+
+        let nbrs     = map fst (getNeighbours x g)
             numNbrs  = length nbrs
-            
+
         if numNbrs < n
             then do
                 let unconnected = foldr L.delete nodes (x:nbrs)
                     sorted      = L.sortBy (O.comparing to_x) unconnected
                     to_x y      = euclideanDist (loc ! x) (loc ! y)
                     toAdd       = take (max (minLinks - numNbrs) 0) sorted
-                forM_ toAdd $ \y -> do
-                    curv <- curvature
-                    dist <- distance x y
-                    ST.modify $ addEdge x y (dist * curv)
+                mapM_ (addLink x) toAdd
             else return ()) (mkGraphMap [] [])
+
     where
         nodes = [1..n]
+
+        addLink x y = do
+            curv <- curvature
+            dist <- distance x y
+            ST.modify $ addEdge x y (dist * curv)
 
         addEmpty x (G graph xs) = G (M.insert x M.empty graph) xs
 
