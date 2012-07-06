@@ -112,10 +112,10 @@ ac3 csp queue = go (domains csp) (extend xs queue)
 -- |Returns the new values in the domain of @x@, together with a @Bool@ flag,
 --  which is @True@ if we modified the domain of @x@, and @False@ otherwise.
 removeInconsistentValues :: CSP c var val =>
-                            c var val
-                         -> [val]
-                         -> var
-                         -> var
+                            c var val   -- ^ Constraint satisfaction problem
+                         -> [val]       -- ^ Domain of x
+                         -> var         -- ^ First variable, x
+                         -> var         -- ^ Second variable, y
                          -> (Bool, [val])
 removeInconsistentValues csp old x y = if length new < length old
     then (True, new)
