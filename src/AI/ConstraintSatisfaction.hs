@@ -2,6 +2,7 @@
 
 module AI.ConstraintSatisfaction where
 
+import Control.Monad.State
 import Data.Map (Map, (!))
 
 import qualified Data.List as L
@@ -82,49 +83,41 @@ class Ord var => CSP c var val where
 -- Constraint Propagation with AC-3 --
 --------------------------------------
 
--- |Returns @False@ if an inconsistency is found and @True@ otherwise.
-ac3 :: (CSP c var val, Queue q) =>
-       c var val    -- ^ Constraint satisfaction problem.
-    -> q (var,var)  -- ^ Empty queue.
-    -> Bool         -- ^ Result of CSP.
-ac3 csp queue = go (domains csp) (extend xs queue)
+-- |The arc-consistency algorithm AC-3 to reduce the domains of a constraint
+--  satisfaction problem until they are arc-consistent. A @Bool@ flag is also
+--  returned, with the value @False@ if an inconsistency is found and @True@ 
+--  otherwise.
+ac3 :: CSP c var val => c var val -> ( Bool, Map var [val] )
+ac3 csp = go (domains csp) initial
     where
-        xs = [ (x, y) | x <- vars csp, y <- nbr ! x ]
+        -- |Initial queue of variable pairs to be tested.
+        initial = [ (x, y) | x <- vars csp, y <- nbr ! x ]
 
-        go dom queue = if empty queue
-            then True
-            else if revised
-                    then if length domx == 0
-                            then False
-                            else go dom' queue'
-                    else True
+        -- |The main recursive function, which keeps track of the current
+        --  works queue and the restricted domains.
+        go dom queue = if empty queue || not revised
+            then (True, dom)
+            else if null domx
+                then (False, dom')
+                else go dom' queue'
 
             where
                 ((x,y), rest)   = pop queue
-                (revised, domx) = removeInconsistentValues csp (dom ! x) x y
+                (revised, domx) = removeInconsistentValues dom x y
                 dom'   = M.insert x domx dom
                 queue' = extend newElts rest
                 newElts  = map (\z -> (z,x)) (L.delete y (nbr ! x))
 
+        -- |Returns a new domain for x, together with a Bool flag indicating
+        --  whether the domain has been revised or not.
+        removeInconsistentValues dom x y = if length new < length old
+            then (True,  new)
+            else (False, new)
+
+            where
+                old = dom ! x
+                new = filter fun old
+                fun xval = any (\yval -> con x xval y yval) (dom ! y)
+
         con = constraints csp
         nbr = neighbours csp
-
--- |Returns the new values in the domain of @x@, together with a @Bool@ flag,
---  which is @True@ if we modified the domain of @x@, and @False@ otherwise.
-removeInconsistentValues :: CSP c var val =>
-                            c var val   -- ^ Constraint satisfaction problem
-                         -> [val]       -- ^ Domain of x
-                         -> var         -- ^ First variable, x
-                         -> var         -- ^ Second variable, y
-                         -> (Bool, [val])
-removeInconsistentValues csp old x y = if length new < length old
-    then (True, new)
-    else (False, new)
-    where
-        con = constraints csp
-        dom = domains csp
-        new = filter fun old
-        fun vi = any (\vj -> con x vi y vj) (dom ! y)
-
-
-
