@@ -122,8 +122,9 @@ removeInconsistentValues csp old x y = if length new < length old
     else (False, new)
     where
         con = constraints csp
+        dom = domains csp
         new = filter fun old
-        fun vi = any (\vj -> con x vi y vj) (domains csp ! y)
+        fun vi = any (\vj -> con x vi y vj) (dom ! y)
 
 
 
