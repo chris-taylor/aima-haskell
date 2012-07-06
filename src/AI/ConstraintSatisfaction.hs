@@ -96,25 +96,36 @@ ac3 csp = go (domains csp) initial
         -- |The main recursive function, which keeps track of the current
         --  works queue and the restricted domains.
         go dom queue = if empty queue || not revised
-            then (True, dom)
-            else if null domx
+            then (True, dom')
+            else if null (dom' ! x)
                 then (False, dom')
                 else go dom' queue'
 
             where
                 ((x,y), rest)   = pop queue
-                (revised, domx) = removeInconsistentValues dom x y
-                dom'   = M.insert x domx dom
-                queue' = extend newElts rest
-                newElts  = map (\z -> (z,x)) (L.delete y (neighbours csp ! x))
+                (revised, dom') = removeInconsistentValues dom x y
+                queue'          = extend newElts rest
+                newElts = map (\z -> (z,x)) (L.delete y (neighbours csp ! x))
 
         -- |Returns a new domain for x, together with a Bool flag indicating
         --  whether the domain has been revised or not.
         removeInconsistentValues dom x y = if length new < length old
-            then (True,  new)
-            else (False, new)
+            then (True,  M.insert x new dom)
+            else (False, dom)
 
             where
                 old = dom ! x
                 new = filter fun old
                 fun xv = any (\yv -> constraints csp x xv y yv) (dom ! y)
+
+-----------------
+-- Example CSP --
+-----------------
+
+data ExampleCSP a b = ExampleCSP
+
+instance CSP ExampleCSP Char Int where
+    vars _ = "XY"
+    domains _ = M.fromList [ ('X', [1,2]), ('Y', [1]) ]
+    neighbours _ = M.fromList [ ('X',"Y"), ('Y',"X") ]
+    constraints _ x xv y yv = xv /= yv
