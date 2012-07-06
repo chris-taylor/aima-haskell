@@ -70,7 +70,7 @@ listToFunction xs x = case lookup x xs of
 
 -- |A universal map maps all keys to the same value.
 mkUniversalMap :: Ord k => [k] -> a -> Map k a
-mkUniversalMap ks a = M.fromList $ zip xs (repeat a)
+mkUniversalMap ks a = M.fromList $ zip ks (repeat a)
 
 --------------------
 -- Random Numbers -- 
@@ -82,6 +82,12 @@ randomChoiceIO [] = error "Empty list -- RANDOMCHOICEIO"
 randomChoiceIO xs = do
     n <- R.randomRIO (0,length xs - 1)
     return (xs !! n)
+
+-- |Return @True@ with probability p.
+probabilityIO :: (R.Random a, Ord a, Num a) => a -> IO Bool
+probabilityIO p = do
+    p' <- R.randomRIO (0,1)
+    return (if p' < p then True else False)
 
 --------------------
 -- IO Combinators -- 
