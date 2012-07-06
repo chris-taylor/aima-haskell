@@ -1,11 +1,13 @@
 module AI.Util.Util where
 
 import qualified Data.List as L
+import qualified Data.Map as M
 import qualified Data.Ord as O
 import qualified System.Random as R
 
 import Control.Concurrent.STM
 import Control.DeepSeq
+import Data.Map (Map)
 import System.CPUTime
 import System.Timeout
 
@@ -61,6 +63,14 @@ listToFunction :: (Eq a) => [(a,b)] -> a -> b
 listToFunction xs x = case lookup x xs of
     Nothing -> error "Argument not found in list -- LISTTOFUNCTION"
     Just y  -> y
+
+-------------------
+-- Map Functions --
+-------------------
+
+-- |A universal map maps all keys to the same value.
+mkUniversalMap :: Ord k => [k] -> a -> Map k a
+mkUniversalMap ks a = M.fromList $ zip xs (repeat a)
 
 --------------------
 -- Random Numbers -- 
