@@ -4,16 +4,21 @@ module AI.Search where
 
 import Control.DeepSeq
 import Control.Monad
+import Control.Monad.State (StateT)
 import Data.IORef
-import Data.Map (Map)
+import Data.Map (Map, (!))
 import Data.Maybe (fromJust)
 import Data.Ord (comparing)
 import Data.Set (Set)
+import System.IO
 import System.IO.Unsafe (unsafePerformIO)
 
+import qualified Control.Monad.State as ST
 import qualified Data.Map as M
+import qualified Data.Ord as O
 import qualified Data.Set as S
 import qualified Data.List as L
+import qualified System.Random as R
 
 import AI.Util.Graph (Graph)
 import AI.Util.Queue
@@ -306,8 +311,8 @@ mkGraphMap :: (Ord a) => [(a,[(a,Cost)])] -> [(a,Location)] -> GraphMap a
 mkGraphMap conn loc = G (G.toUndirectedGraph conn) (M.fromList loc)
 
 -- |Get the neighbours of a node from a GraphMap.
-getNeighbors :: Ord a => a -> GraphMap a -> [(a,Cost)]
-getNeighbors a (G g _) = G.getNeighbours a g
+getNeighbours :: Ord a => a -> GraphMap a -> [(a,Cost)]
+getNeighbours a (G g _) = G.getNeighbours a g
 
 -- |Get the location of a node from a GraphMap.
 getLocation :: Ord a => a -> GraphMap a -> Location
@@ -315,10 +320,14 @@ getLocation a (G _ l) = case M.lookup a l of
     Nothing -> error "Vertex not found in graph -- GETLOCATION"
     Just pt -> pt
 
+-- | Add an edge between two nodes to a GraphMap.
+addEdge :: Ord a => a -> a -> Cost -> GraphMap a -> GraphMap a
+addEdge x y cost (G graph locs) = G (G.addUndirectedEdge x y cost graph) locs
+
 -- |The cost associated with moving between two nodes in a GraphMap. If the
 --  nodes are not connected by an edge, then the cost is returned as infinity.
 costFromTo :: Ord a => GraphMap a -> a -> a -> Cost
-costFromTo graph a b = case lookup b (getNeighbors a graph) of
+costFromTo graph a b = case lookup b (getNeighbours a graph) of
     Nothing -> 1/0
     Just c  -> c
 
@@ -335,7 +344,7 @@ data GraphProblem s a = GP
 instance Ord s => Problem GraphProblem s s where
     initial = initGP
     goal = goalGP
-    successor (GP g _ _) s = [ (x,x) | (x,_) <- getNeighbors s g ]
+    successor (GP g _ _) s = [ (x,x) | (x,_) <- getNeighbours s g ]
     costP (GP g _ _) c s _ s' = c + costFromTo g s s'
     heuristic (GP g _ goal) n = euclideanDist x y
         where
@@ -370,7 +379,7 @@ romania = mkGraphMap
     , ("O",(131,571)), ("P",(320,368)), ("R",(233,410)), ("S",(207,457))
     , ("T",( 94,410)), ("U",(456,350)), ("V",(509,444)), ("Z",(108,531)) ]
 
--- |The Australis graph from AIMA.
+-- |The Australia graph from AIMA.
 australia :: GraphMap String
 australia = mkGraphMap
 
@@ -387,6 +396,57 @@ gp1, gp2, gp3  :: GraphProblem String String
 gp1 = GP { graphGP = australia, initGP = "Q", goalGP = "WA" }
 gp2 = GP { graphGP = romania, initGP = "A", goalGP = "B" }
 gp3 = GP { graphGP = romania, initGP = "O", goalGP = "N" }
+
+-- |Construct a random graph with the specified number of nodes, and random
+--  links. The nodes are laid out randomly on a @(width x height)@ rectangle.
+--  Then each node is connected to the @minLinks@ nearest neighbours. Because
+--  inverse links are added, some nodes will have more connections. The distance
+--  between nodes is the hypotenuse multiplied by @curvature@, where @curvature@
+--  defaults to a random number between 1.1 and 1.5.
+randomGraphMap ::
+                 Int    -- ^ Number of nodes
+              -> Int    -- ^ Minimum number of links
+              -> Double -- ^ Width
+              -> Double -- ^ Height
+              -> IO (GraphMap Int)
+randomGraphMap n minLinks width height = ST.execStateT (do
+
+    replicateM n mkLocation >>= ST.put . mkGraphMap [] . zip nodes
+
+    forM_ nodes $ \x -> do
+    
+        ST.modify (addEmpty x)
+        graph@(G _ loc) <- ST.get
+
+        let nbrs     = map fst (getNeighbours x graph)
+            numNbrs  = length nbrs
+            
+        if numNbrs < n
+            then do
+                let unconnected = foldr L.delete nodes (x:nbrs)
+                    sorted      = L.sortBy (O.comparing to_x) unconnected
+                    to_x y      = euclideanDist (loc ! x) (loc ! y)
+                    toAdd       = take (max (minLinks - numNbrs) 0) sorted
+                forM_ toAdd $ \y -> do
+                    curv <- curvature
+                    dist <- distance x y
+                    ST.modify $ addEdge x y (dist * curv)
+            else return ()) (mkGraphMap [] [])
+    where
+        nodes = [1..n]
+
+        addEmpty x (G graph xs) = G (M.insert x M.empty graph) xs
+
+        mkLocation = ST.liftIO $ do
+            x <- R.randomRIO (0,width)
+            y <- R.randomRIO (0,height)
+            return (x,y)
+
+        curvature = ST.liftIO $ R.randomRIO (1.1, 1.5)
+
+        distance x y = do
+            (G _ loc) <- ST.get
+            return $ euclideanDist (loc ! x) (loc ! y)
 
 ----------------------
 -- N Queens Problem --

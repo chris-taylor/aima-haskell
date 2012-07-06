@@ -4,9 +4,11 @@ module AI.Util.Graph
     , toUndirectedGraph
     , getNodes
     , getNeighbours
-    , getEdge ) where
+    , getEdge
+    , addEdge
+    , addUndirectedEdge ) where
 
-import Data.Map (Map)
+import Data.Map (Map, (!))
 import qualified Data.Map as M
 import qualified Data.List as L
 
@@ -42,6 +44,16 @@ getEdge :: (Ord a) => a -> a -> Graph a b -> Maybe b
 getEdge x y g = case M.lookup x g of
     Nothing -> error "Vertex not found in graph -- GETEDGE"
     Just ys -> M.lookup y ys
+
+-- |Add an edge between two vertices to a Graph.
+addEdge :: (Ord a) => a -> a -> b -> Graph a b -> Graph a b
+addEdge x y e graph = let xs  = graph ! x
+                          xs' = M.insert y e xs
+                       in M.insert x xs' graph
+
+-- |Add an undirected edge between two vertices to a Graph.
+addUndirectedEdge :: (Ord a) => a -> a -> b -> Graph a b -> Graph a b
+addUndirectedEdge x y e graph = addEdge y x e (addEdge x y e graph)
 
 -- |Convert a graph to its adjacency list representation.
 fromGraph :: Graph a b -> [(a, [(a,b)])]
