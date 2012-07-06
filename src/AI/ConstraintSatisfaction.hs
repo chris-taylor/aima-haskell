@@ -83,27 +83,47 @@ class Ord var => CSP c var val where
 --------------------------------------
 
 -- |Returns @False@ if an inconsistency is found and @True@ otherwise.
-ac3 :: (CSP c var val, Queue q) => c var val -> q (var,var) -> Bool
-ac3 csp queue = go (extend xs queue)
+ac3 :: (CSP c var val, Queue q) =>
+       c var val    -- ^ Constraint satisfaction problem.
+    -> q (var,var)  -- ^ Empty queue.
+    -> Bool         -- ^ Result of CSP.
+ac3 csp queue = go (domains csp) (extend xs queue)
     where
-        xs = [ (xi, xk) | xi <- vars csp, xk <- nbr ! xi ]
+        xs = [ (x, y) | x <- vars csp, y <- nbr ! x ]
 
-        go queue = if empty queue
+        go dom queue = if empty queue
             then True
-            else if removeInconsistentValues csp xi xj
-                    then if length (dom ! xi) == 0
+            else if revised
+                    then if length domx == 0
                             then False
-                            else go (extend (map (\y -> (y,xi)) (L.delete xj (nbr ! xi))) rest)
+                            else go dom' queue'
                     else True
 
             where
-                ((xi,xj), rest) = pop queue
+                ((x,y), rest)   = pop queue
+                (revised, domx) = removeInconsistentValues csp (dom ! x) x y
+                dom'   = M.insert x domx dom
+                queue' = extend newElts rest
+                newElts  = map (\z -> (z,x)) (L.delete y (nbr ! x))
 
-        dom = domains csp
-
+        con = constraints csp
         nbr = neighbours csp
 
-removeInconsistentValues :: CSP c var val => c var val -> var -> var -> Bool
-removeInconsistentValues = undefined
+-- |Returns the new values in the domain of @x@, together with a @Bool@ flag,
+--  which is @True@ if we modified the domain of @x@, and @False@ otherwise.
+removeInconsistentValues :: CSP c var val =>
+                            c var val
+                         -> [val]
+                         -> var
+                         -> var
+                         -> (Bool, [val])
+removeInconsistentValues csp old x y = if length new < length old
+    then (True, new)
+    else (False, new)
+    where
+        con = constraints csp
+        new = filter fun old
+        fun vi = any (\vj -> con x vi y vj) (domains csp ! y)
+
 
 
