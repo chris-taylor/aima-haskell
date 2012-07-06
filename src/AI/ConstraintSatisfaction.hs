@@ -91,7 +91,7 @@ ac3 :: CSP c var val => c var val -> ( Bool, Map var [val] )
 ac3 csp = go (domains csp) initial
     where
         -- |Initial queue of variable pairs to be tested.
-        initial = [ (x, y) | x <- vars csp, y <- nbr ! x ]
+        initial = [ (x, y) | x <- vars csp, y <- neighbours csp ! x ]
 
         -- |The main recursive function, which keeps track of the current
         --  works queue and the restricted domains.
@@ -106,7 +106,7 @@ ac3 csp = go (domains csp) initial
                 (revised, domx) = removeInconsistentValues dom x y
                 dom'   = M.insert x domx dom
                 queue' = extend newElts rest
-                newElts  = map (\z -> (z,x)) (L.delete y (nbr ! x))
+                newElts  = map (\z -> (z,x)) (L.delete y (neighbours csp ! x))
 
         -- |Returns a new domain for x, together with a Bool flag indicating
         --  whether the domain has been revised or not.
@@ -117,7 +117,4 @@ ac3 csp = go (domains csp) initial
             where
                 old = dom ! x
                 new = filter fun old
-                fun xval = any (\yval -> con x xval y yval) (dom ! y)
-
-        con = constraints csp
-        nbr = neighbours csp
+                fun xv = any (\yv -> constraints csp x xv y yv) (dom ! y)
