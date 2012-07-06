@@ -11,6 +11,15 @@ import qualified Data.Map as M
 import AI.Util.Queue
 import AI.Util.Util
 
+-- |Data type used for domains.
+type Domain a b = Map a [b]
+
+-- |Data type used for neighbor lists.
+type Neighbour a = Map a [a]
+
+-- |Data type used for assignments.
+type Assignment var val = Map var val
+
 -- |This class describes finite-domain Constraint Satisfaction Problems.
 --  A CSP is specified by the following three inputs:
 --      vars        A list of variables; each is atomic (eg Int or String)
@@ -36,11 +45,11 @@ class Ord var => CSP c var val where
     vars :: c var val -> [var]
 
     -- | A mapping of variables to possible values.
-    domains :: c var val -> Map var [val]
+    domains :: c var val -> Domain var val
 
     -- | A mapping of variables to a list of the other variables that
     --   participate in its constraints.
-    neighbours :: c var val -> Map var [var]
+    neighbours :: c var val -> Neighbour var
 
     -- | A function @f A a B b@ that returns True if neighbours A, B satisfy
     --   the constraint when they have values A == a and B == b.
@@ -48,17 +57,17 @@ class Ord var => CSP c var val where
 
     -- | Add (var, val) to a map of current assignments, discarding the old
     --   value if any.
-    assign :: var -> val -> Map var val -> Map var val
+    assign :: var -> val -> Assignment var val -> Map var val
     assign = M.insert
 
     -- | Remove (var, val) from assignments, i.e. backtrack. Do not call this
     --   if you are assigning var to a new value - just call 'assign' for that.
-    unassign :: var -> Map var val -> Map var val
+    unassign :: var -> Assignment var val -> Assignment var val
     unassign = M.delete
 
     -- | Return the number of conflicts that var == val has with other
     --   variables currently assigned.
-    nConflicts :: c var val -> var -> val -> Map var val -> Int
+    nConflicts :: c var val -> var -> val -> Assignment var val -> Int
     nConflicts csp var val assignment = countIf conflict assignedVals
         where
             assignedVals   = M.toList assignment
@@ -72,7 +81,7 @@ class Ord var => CSP c var val where
     -- succ :: c var val -> 
 
     -- | The goal is to assign all vars with all constraints satisfied.
-    goalTest :: c var val -> Map var val -> Bool
+    goalTest :: c var val -> Assignment var val -> Bool
     goalTest csp assignment =
         M.size assignment == length (vars csp) && all noConflicts (vars csp)
         where
@@ -87,7 +96,7 @@ class Ord var => CSP c var val where
 --  satisfaction problem until they are arc-consistent. A @Bool@ flag is also
 --  returned, with the value @False@ if an inconsistency is found and @True@ 
 --  otherwise.
-ac3 :: CSP c var val => c var val -> ( Bool, Map var [val] )
+ac3 :: CSP c var val => c var val -> (Bool, Domain var val)
 ac3 csp = go (domains csp) initial
     where
         -- |Initial queue of variable pairs to be tested.
