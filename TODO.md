@@ -19,6 +19,8 @@
 
 - More statistics, e.g. effective branching factor, time taken
 - Is it possible to structure backtracking search as a monad?
+- Generate random graph problem instances
+- Make changes to n-queens problem
 
 ## Games
 
@@ -29,6 +31,10 @@
     orderMoves :: [a] -> [a]
     orderMoves = id
 - Stochastic games (using probability monad?)
+
+## Constraint Satisfaction
+
+- Examples
 
 ## Probability
 - Documentation
