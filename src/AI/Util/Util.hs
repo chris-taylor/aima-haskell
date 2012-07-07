@@ -41,6 +41,16 @@ insert :: Int -> a -> [a] -> [a]
 insert 0 n (_:xs) = n : xs
 insert i n (x:xs) = x : insert (i-1) n xs
 
+-- |Delete every occurence of this element from the list
+deleteEvery :: Eq a => a -> [a] -> [a]
+deleteEvery x []     = []
+deleteEvery x (y:ys) = if y == x then deleteEvery x ys else y : deleteEvery x ys
+
+-- |Delete all the elements of the first list from the second list
+deleteAll :: Eq a => [a] -> [a] -> [a]
+deleteAll xs []     = []
+deleteAll xs (y:ys) = if y `elem` xs then deleteAll xs ys else y : deleteAll xs ys
+
 -- |Given a list x :: [a], return a new list y :: [(Int,a)] which pairs every
 --  element of the list with its position.
 enumerate :: [a] -> [(Int,a)]
