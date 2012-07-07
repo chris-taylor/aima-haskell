@@ -421,7 +421,7 @@ randomGraphMap n minLinks width height = ST.execStateT go (mkGraphMap [] []) whe
             let nbrs     = map fst (getNeighbours x g)
                 numNbrs  = length nbrs
 
-                unconnected = foldr L.delete nodes (x:nbrs)
+                unconnected = deleteAll (x:nbrs) nodes
                 sorted      = L.sortBy (O.comparing to_x) unconnected
                 to_x y      = euclideanDist (loc ! x) (loc ! y)
                 toAdd       = take (minLinks - numNbrs) sorted
