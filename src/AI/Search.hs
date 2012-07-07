@@ -409,47 +409,46 @@ randomGraphMap ::
               -> Double -- ^ Width
               -> Double -- ^ Height
               -> IO (GraphMap Int)
-randomGraphMap n minLinks width height = ST.execStateT (do
+randomGraphMap n minLinks width height = ST.execStateT go (mkGraphMap [] []) where
+    go = do
+        replicateM n mkLocation >>= ST.put . mkGraphMap [] . zip nodes
 
-    replicateM n mkLocation >>= ST.put . mkGraphMap [] . zip nodes
+        forM_ nodes $ \x -> do
 
-    forM_ nodes $ \x -> do
+            ST.modify (addEmpty x)
+            g @ (G _ loc) <- ST.get
 
-        ST.modify (addEmpty x)
-        g @ (G _ loc) <- ST.get
+            let nbrs     = map fst (getNeighbours x g)
+                numNbrs  = length nbrs
 
-        let nbrs     = map fst (getNeighbours x g)
-            numNbrs  = length nbrs
+            if numNbrs < n
+                then let unconnected = foldr L.delete nodes (x:nbrs)
+                         sorted      = L.sortBy (O.comparing to_x) unconnected
+                         to_x y      = euclideanDist (loc ! x) (loc ! y)
+                         toAdd       = take (max (minLinks - numNbrs) 0) sorted
+                     in mapM_ (addLink x) toAdd
+                else return ()
 
-        if numNbrs < n
-            then do
-                let unconnected = foldr L.delete nodes (x:nbrs)
-                    sorted      = L.sortBy (O.comparing to_x) unconnected
-                    to_x y      = euclideanDist (loc ! x) (loc ! y)
-                    toAdd       = take (max (minLinks - numNbrs) 0) sorted
-                mapM_ (addLink x) toAdd
-            else return ()) (mkGraphMap [] [])
+        where
+            nodes = [1..n]
 
-    where
-        nodes = [1..n]
+            addLink x y = do
+                curv <- curvature
+                dist <- distance x y
+                ST.modify $ addEdge x y (dist * curv)
 
-        addLink x y = do
-            curv <- curvature
-            dist <- distance x y
-            ST.modify $ addEdge x y (dist * curv)
+            addEmpty x (G graph xs) = G (M.insert x M.empty graph) xs
 
-        addEmpty x (G graph xs) = G (M.insert x M.empty graph) xs
+            mkLocation = ST.liftIO $ do
+                x <- R.randomRIO (0,width)
+                y <- R.randomRIO (0,height)
+                return (x,y)
 
-        mkLocation = ST.liftIO $ do
-            x <- R.randomRIO (0,width)
-            y <- R.randomRIO (0,height)
-            return (x,y)
+            curvature = ST.liftIO $ R.randomRIO (1.1, 1.5)
 
-        curvature = ST.liftIO $ R.randomRIO (1.1, 1.5)
-
-        distance x y = do
-            (G _ loc) <- ST.get
-            return $ euclideanDist (loc ! x) (loc ! y)
+            distance x y = do
+                (G _ loc) <- ST.get
+                return $ euclideanDist (loc ! x) (loc ! y)
 
 ----------------------
 -- N Queens Problem --
