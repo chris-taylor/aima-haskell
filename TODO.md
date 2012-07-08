@@ -20,12 +20,13 @@
 - Improve queueing module to use a more efficient data structure
 - Organize Utils module into subsections
 
-##Search
+## Search
 
 - More statistics, e.g. effective branching factor, time taken
 - Is it possible to structure backtracking search as a monad?
 - Generate random graph problem instances
 - Make changes to n-queens problem
+- Round effective branching factor to a sensible number of dps
 
 ## Games
 
