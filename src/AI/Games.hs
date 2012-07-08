@@ -130,6 +130,7 @@ alphaBetaSearch game cutoffTest evalFn state = a
         (a,_)  = argMax succs (minValue negInf posInf 0 . snd)
 
         minValue alpha beta depth state
+            | terminalTest game state = utility game state player
             | cutoffTest state depth  = evalFn state player
             | otherwise               = 
                 f posInf beta (map snd $ successors game state)
@@ -142,6 +143,7 @@ alphaBetaSearch game cutoffTest evalFn state = a
                             v' = min v (maxValue alpha beta (1+depth) s)
 
         maxValue alpha beta depth state
+            | terminalTest game state = utility game state player
             | cutoffTest state depth  = evalFn state player
             | otherwise = 
                 g negInf alpha (map snd $ successors game state)
@@ -158,13 +160,14 @@ alphaBetaSearch game cutoffTest evalFn state = a
 alphaBetaSearch' :: (Game g s a) => Int -> g s a -> s -> a
 alphaBetaSearch' lim game state = alphaBetaSearch game cutoffFn evalFn state
     where
-        cutoffFn state depth = terminalTest game state || depth > lim
+        cutoffFn state depth = depth > lim
         evalFn = heuristic game
 
 -- |Repeatedly try depth-limited alpha-beta search with an increasing depth
 --  limit.
 iterativeAlphaBeta :: (NFData a, Game g s a) => g s a -> s -> [a]
-iterativeAlphaBeta game state = map (\d -> alphaBetaSearch' d game state) [0..]
+iterativeAlphaBeta game state =
+    map (\d -> alphaBetaSearch' d game state) [0..1000]
 
 ------------------
 -- Game Players --
@@ -229,7 +232,7 @@ playGame :: (Game g s a, Show s, Show a) =>
             g s a               -- ^ Game to play
          -> GamePlayer g s a    -- ^ Player 1
          -> GamePlayer g s a    -- ^ Player 2
-         -> IO Utility          -- ^ Result of the game
+         -> IO s                -- ^ Final state
 playGame game p1 p2 = go (initial game)
     where
         go state = if terminalTest game state
@@ -239,7 +242,7 @@ playGame game p1 p2 = go (initial game)
         printResult state = do
             putStrLn "Final state is:" >> print state
             putStrLn ("Final score is " ++ show util ++ " (" ++ result ++ ")")
-            return util
+            return state
             where
                 util   = utility game state Max
                 result = if util == 0 then "Draw" else if util > 0

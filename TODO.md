@@ -37,6 +37,7 @@
     orderMoves :: [a] -> [a]
     orderMoves = id
 - Stochastic games (using probability monad?)
+- Figure out why alpha/beta search sometimes makes stupid decisions while playing Connect 4
 
 ## Constraint Satisfaction
 

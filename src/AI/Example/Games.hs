@@ -101,7 +101,7 @@ instance Game TicTacToe TTState TTMove where
 
     terminalTest g s = utilityTT s /= 0 || null (legalMoves g s)
 
-    heuristic _ = heuristicTTT [1,-1,0,0]
+    heuristic _ = heuristicTTT [1.0,-1.0,0,0]
 
 -- |A 3x3 instance of tic tac toe.
 ticTacToe :: TicTacToe TTState TTMove
@@ -121,7 +121,7 @@ counter Min = X
 --  move is played.
 computeUtility :: TTState -> TTMove -> Utility
 computeUtility s@(TTS _ player _ _) move = if kInARow s move player
-    then if player == O then 1 else -1
+    then if player == O then posInf else negInf
     else 0
 
 -- |Given the current state of the board, return @True@ if putting a counter
@@ -197,7 +197,7 @@ instance Game Connect4 C4State C4Move where
     legalMoves (C g) s@(TTS board _ _ _) =
         [ x+1 | (x,y) <- legalMoves g s, y == 0 || (x,y-1) `M.member` board ]
 
-    heuristic _ = heuristicTTT [0.1,-0.1,1,-1]
+    heuristic g = heuristicTTT [0.1,-0.1,0.9,-0.9]
 
 -- |Return the lowest row in the specified column which is currently unoccupied.
 lowestUnoccupied :: Int -> TTState -> Int
@@ -210,20 +210,15 @@ lowestUnoccupied col (TTS board _ _ (_,v,_)) =
 -- Compute heuristics --
 ------------------------
 
--- |A heuristic function for Tic Tac Toe. If the game is won or lost, a value of
---  positive or negative infinity is assigned. Otherwise the value is a weighted
+-- |A heuristic function for Tic Tac Toe. The value is a weighted
 --  combination of simpler heuristic functions.
 heuristicTTT :: [Double] -> TTState -> Player -> Utility
-heuristicTTT weights s p
-    | u > 0 = posInf
-    | u < 0 = negInf
-    | otherwise = sum $ zipWith (*) weights [n1,n2,n3,n4]
+heuristicTTT weights s p = sum $ zipWith (*) weights [n1,n2,n3,n4]
     where
-        u  = if p == Max then utilityTT s else negate (utilityTT s)
-        n1 = fromIntegral $ numWinningLines p s
-        n2 = fromIntegral $ numWinningLines (opponent p) s
-        n3 = fromIntegral $ numThreats p s
-        n4 = fromIntegral $ numThreats (opponent p) s
+        n1 = fromIntegral (numWinningLines p s)
+        n2 = fromIntegral (numWinningLines (opponent p) s)
+        n3 = fromIntegral (numThreats p s)
+        n4 = fromIntegral (numThreats (opponent p) s)
 
 -- |Compute the number of winning lines heuristic for a particular player. A
 --  winning line is defined to be a line of k squares, which contains at least
