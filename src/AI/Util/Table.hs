@@ -10,22 +10,22 @@ printTable :: Show a =>
            -> IO ()
 printTable pad xs header rownames = do
     let horzLines = replicate (length header) (replicate pad '-')
-    printRow pad horzLines
-    printRow pad header
-    printRow pad horzLines
+    printRow pad '+' horzLines
+    printRow pad '|' header
+    printRow pad '+' horzLines
     let rows = zipWith (:) rownames (map (map show) xs)
-    mapM_ (printRow pad) rows
-    printRow pad horzLines
+    mapM_ (printRow pad '|') rows
+    printRow pad '+' horzLines
 
 -- |Print a single row of a table.
-printRow :: Int -> [String] -> IO ()
-printRow pad xs = do
+printRow :: Int -> Char -> [String] -> IO ()
+printRow pad sep xs = do
     let ys = map (trim pad) xs
-    putChar '|'
+    putChar sep
     mapM_ printCell ys
     putStrLn ""
     where
         trim pad str = let n = length str
                            m = max 0 (pad - n)
                         in take pad str ++ replicate m ' '
-        printCell cl = putStr cl >> putChar '|'
+        printCell cl = putStr cl >> putChar sep
