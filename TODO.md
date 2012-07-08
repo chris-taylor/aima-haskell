@@ -42,4 +42,5 @@
 - Examples
 
 ## Probability
-- Documentation
+
+- Flesh out functionality
