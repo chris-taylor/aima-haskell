@@ -20,35 +20,56 @@ instance Monad Dist where
 
     (D xs) >>= f = D [ (y,p*q) | (x,p) <- xs, (y,q) <- unD (f x) ]
 
+-- |Map over the values of a probability distribution.
 mapD :: (a -> b) -> Dist a -> Dist b
 mapD = fmap
 
+-- |Map over the probabilities of a probability distribution.
 mapP :: (Prob -> Prob) -> Dist a -> Dist a
 mapP f (D xs) = D (map (\(x,p) -> (x,f p)) xs)
 
-filterP :: (a -> Bool) -> Dist a -> Dist a
-filterP test (D xs) = normalize $ D $ filter (test . fst) xs
+-- |Filter the values of a probability distribution according to some predicate.
+filterD :: (a -> Bool) -> Dist a -> Dist a
+filterD test (D xs) = D $ filter (test . fst) xs
 
+-- |Return the distribution that results from conditioning on some predicate.
+--  Note that if the condition is not satisfied by any member of the initial
+--  distribution, this procedure will give nonsensical results.
 (|||) :: Dist a -> (a -> Bool) -> Dist a
-p ||| condition = filterP condition p
+p ||| condition = normalize (filterD condition p)
 
+-- |Return the probability that the predicate is satisfied by a distribution.
+(??) :: (a -> Bool) -> Dist a -> Prob
+test ?? dist = sum . probs $ filterD test dist
+
+-- |Return a list of all the values in a distribution.
 vals :: Dist a -> [a]
 vals (D xs) = map fst xs
 
+-- |Return a list of all the probabilities in a distribution.
 probs :: Dist a -> [Prob]
 probs (D xs) = map snd xs
 
+-- |Normalize a probability distribution. It may be necessary to call this after
+--  filtering some values from a distribution.
 normalize :: Dist a -> Dist a
 normalize p = if total =~ 1.0
                 then p
                 else mapP (/total) p where total = sum (probs p)
 
+-- |Check if a given @Dist@ values satisfies the conditions required to be a
+--  probability distribution, i.e. the probability associated with each element
+--  is positive, and the probabilities sum to 1.
 isDist :: Dist a -> Bool
 isDist p@(D xs) = firstAxiomHolds && secondAxiomHolds
     where
     firstAxiomHolds  = all (\x -> snd x >= 0) xs
     secondAxiomHolds = sum (probs p) =~ 1
 
+-- |Collect equal values in a probability distribution. Since we cannot restrict
+--  the values of a probability distribution to those with an @Eq@ instance, it
+--  may sometimes be necessary to call this function to avoid explosive growth
+--  in the number of elements in a distribution.
 collect :: (Ord a) => Dist a -> Dist a
 collect (D xs) = D $ M.toList $ M.fromListWith (+) xs
 
