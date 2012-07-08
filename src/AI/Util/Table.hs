@@ -1,10 +1,17 @@
-module AI.Util.Table (printTable) where
+{-# LANGUAGE ExistentialQuantification #-}
+
+module AI.Util.Table (Showable(..), printTable) where
+
+-- |Showbox
+data Showable = forall a. Show a => SB a
+
+instance Show Showable where
+  show (SB x) = show x
 
 -- |Print a table of data to stdout. You must supply the column width (number
 --  of chars) and a list of row and column names.
-printTable :: Show a =>
-              Int       -- ^ Column width
-           -> [[a]]     -- ^ Data
+printTable :: Int       -- ^ Column width
+           -> [[Showable]]     -- ^ Data
            -> [String]  -- ^ Column names (including the 0th column)
            -> [String]  -- ^ Row names
            -> IO ()

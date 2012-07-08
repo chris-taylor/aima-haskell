@@ -183,6 +183,13 @@ randomGraphMap n minLinks width height = ST.execStateT go (mkGraphMap [] []) whe
                 (G _ loc) <- ST.get
                 return $ euclideanDist (loc ! x) (loc ! y)
 
+-- |Return a random instance of a graph problem with the specified number of
+--  nodes and minimum number of links.
+randomGraphProblem :: Int -> Int -> IO (GraphProblem Int Int)
+randomGraphProblem numNodes minLinks = do
+    g <- randomGraphMap numNodes minLinks 100 100
+    return (GP g 1 numNodes)
+
 ----------------------
 -- N Queens Problem --
 ----------------------
@@ -321,7 +328,7 @@ compareSearchers searchers probs header rownames = do
     printTable 20 (map (map f) (transpose results)) header rownames
     return results
     where
-        f (x,i,j,k) = (i,j,k)
+        f (x,i,j,k) = SB (i,j,k)
 
 -- |Given a problem and a list of searchers, run each search algorithm over the
 --  problem, and print out a table showing the performance of each searcher.
@@ -338,11 +345,12 @@ detailedCompareSearchers searchers names prob = do
     table  <- forM result $ \(n,numGoalChecks,numSuccs,numStates) -> do
         let d = depth $ fromJust n
         let c = round $ cost $ fromJust n
-        return [d,c,numGoalChecks,numSuccs,numStates]
+        let b = fromIntegral numStates ** (1/fromIntegral d)
+        return [SB d,SB c,SB numGoalChecks,SB numSuccs,SB numStates,SB b]
     printTable 20 table header names
     where
         header = ["Searcher","Depth","Cost","Goal Checks","Successors",
-                  "States"]
+                  "States","Eff Branching Factor"]
 
 -- |Run all search algorithms over a few example problems.
 compareGraphSearchers :: IO ()
