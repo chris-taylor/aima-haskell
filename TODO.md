@@ -2,7 +2,11 @@
 
 ## General
 
-- Reorganization. Keep core algorithms in their current place, and move examples and interactive code to separate modules.
+- Complete reorganization. Do we want to separate:
+  - core modules
+  - interactivity (e.g. playing games)
+  - research (e.g. collecting statistics)
+  - examples
 - Improve Haddock documentation, including section headings.
 - Use either System.TimeIt or Criterion for timing calculations.
 
@@ -14,6 +18,7 @@
   - More customisable table layout
   - Use an external library?
 - Improve queueing module to use a more efficient data structure
+- Organize Utils module into subsections
 
 ##Search
 
