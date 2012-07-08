@@ -29,6 +29,7 @@ Library
                         AI.Games
                         AI.Probability
                         AI.ConstraintSatisfaction
+                        AI.Example.Search
                         AI.Util.Graph
                         AI.Util.Queue
                         AI.Util.Table
