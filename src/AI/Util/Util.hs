@@ -74,6 +74,14 @@ listToFunction xs x = case lookup x xs of
     Nothing -> error "Argument not found in list -- LISTTOFUNCTION"
     Just y  -> y
 
+-- |Transpose a list of lists.
+transpose :: [[a]] -> [[a]]
+transpose xs = if or (map null xs)
+    then []
+    else let heads = map head xs
+             tails = map tail xs
+          in heads : transpose tails
+
 -------------------
 -- Map Functions --
 -------------------

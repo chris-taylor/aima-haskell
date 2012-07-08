@@ -313,12 +313,12 @@ testSearchers searchers prob = testSearcher prob `mapM` searchers
 compareSearchers :: (Show t) =>
                     [ProblemIO p s a -> t]  -- ^ List of search algorithms
                  -> [p s a]                 -- ^ List of problems
-                 -> [String]                -- ^ Names of the search algorithms
-                 -> [String]                -- ^ Names of the problems
+                 -> [String]                -- ^ Problem names
+                 -> [String]                -- ^ Search algorithm names
                  -> IO [[(t,Int,Int,Int)]]  
 compareSearchers searchers probs header rownames = do
     results <- testSearchers searchers `mapM` probs
-    printTable 20 (map (map f) results) header rownames
+    printTable 20 (map (map f) (transpose results)) header rownames
     return results
     where
         f (x,i,j,k) = (i,j,k)
@@ -339,7 +339,7 @@ detailedCompareSearchers searchers names prob = do
         let d = depth $ fromJust n
         let c = round $ cost $ fromJust n
         return [d,c,numGoalChecks,numSuccs,numStates]
-    printTable 15 table header names
+    printTable 20 table header names
     where
         header = ["Searcher","Depth","Cost","Goal Checks","Successors",
                   "States"]
@@ -347,13 +347,13 @@ detailedCompareSearchers searchers names prob = do
 -- |Run all search algorithms over a few example problems.
 compareGraphSearchers :: IO ()
 compareGraphSearchers = do
-    compareSearchers searchers probs header probnames
+    compareSearchers searchers probs header algonames
     return ()
     where
         searchers = allSearchers
         probs     = [gp1, gp2, gp3]
-        header    = "Problem" : allSearcherNames
-        probnames = ["Romania(A,B)","Romania(O,N)","Australia"]
+        header    = ["Searcher", "Australia", "Romania(A,B)","Romania(O,N)"]
+        algonames = allSearcherNames
 
 -- |Run all search algorithms over a particular problem and print out
 --  performance statistics.
