@@ -2,30 +2,13 @@
 
 module AI.Search where
 
-import Control.DeepSeq
-import Control.Monad
-import Control.Monad.State (StateT)
-import Data.IORef
-import Data.Map (Map, (!))
-import Data.Maybe (fromJust)
-import Data.Ord (comparing)
 import Data.Set (Set)
-import System.IO
-import System.IO.Unsafe (unsafePerformIO)
-
-import qualified Control.Monad.State as ST
-import qualified Data.Map as M
-import qualified Data.Ord as O
 import qualified Data.Set as S
-import qualified Data.List as L
-import qualified System.Random as R
 
-import AI.Util.Graph (Graph)
 import AI.Util.Queue
-import AI.Util.Table
 import AI.Util.Util
 
-import qualified AI.Util.Graph as G
+--import qualified AI.Util.Graph as G
 
 -- |The type used to represent the cost associated with a particular path.
 type Cost = Double
