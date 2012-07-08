@@ -167,29 +167,44 @@ toChars (TTS board _ _ (h,v,_)) = reverse $ map (map f) board'
 
 -- |The 'Connect4' data type is a wrapper around 'TicTacToe', which allows us
 --  to inherit most of its behaviour.
-data Connect4 s a = C (TicTacToe s a)
+data Connect4 s a = C (TicTacToe TTState TTMove)
+
+-- |Type for Connect 4 state.
+type C4State = TTState
+
+-- |Type for Connect 4 moves.
+type C4Move = Int
 
 -- |The standard Connect 4 board.
-connect4 :: Connect4 TTState TTMove
+connect4 :: Connect4 C4State C4Move
 connect4 = C (TTT 7 6 4)
 
 -- |A Connect 4 game is identical to tic tac toe in most respects. It differs in
 --  the set of legal moves, the fact that it sorts moves so that those closest
 --  to the center are considered first, and the heuristic function.
-instance Game Connect4 TTState TTMove where
+instance Game Connect4 C4State C4Move where
     initial      (C g)        = initial g
     toMove       (C g) s      = toMove g s
-    makeMove     (C g) move s = makeMove g move s
     utility      (C g) s p    = utility g s p
     terminalTest (C g) s      = terminalTest g s
 
+    makeMove     (C g) col s  = let row = lowestUnoccupied (col-1) s
+                                in makeMove g (col-1, row) s
+
     sortMoves (C (TTT h _ _)) as = L.sortBy (O.comparing f) as
-        where f (_,y) = abs (y - h `div` 2)
+        where f x = abs (x - h `div` 2)
 
     legalMoves (C g) s@(TTS board _ _ _) =
-        [ (x,y) | (x,y) <- legalMoves g s, y == 0 || (x,y-1) `M.member` board ]
+        [ x+1 | (x,y) <- legalMoves g s, y == 0 || (x,y-1) `M.member` board ]
 
     heuristic _ = heuristicTTT [0.1,-0.1,1,-1]
+
+-- |Return the lowest row in the specified column which is currently unoccupied.
+lowestUnoccupied :: Int -> TTState -> Int
+lowestUnoccupied col (TTS board _ _ (_,v,_)) = 
+    let coords   = map (\row -> (col,row)) [0..v-1]
+        counters = map (`M.lookup` board) coords
+    in (countIf (/=Nothing) counters)
 
 ------------------------
 -- Compute heuristics --
