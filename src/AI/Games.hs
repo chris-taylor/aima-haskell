@@ -112,6 +112,13 @@ minimaxCutoff cutoff heuristic game state = a
             | otherwise               = 
                 maximum [ minValue (1+depth) s | (_,s) <- successors game state ]
 
+-- |Default implementation of minimaxCutoff, that uses the default heuristic
+--  function from the game and cuts off the search at a depth limit.
+minimaxCutoff' :: (Game g s a) => Int -> GamePlayer g s a
+minimaxCutoff' lim game state = minimaxCutoff cutoff evalFn game state
+    where
+        cutoff state depth = depth == lim
+        evalFn = heuristic game
 
 -- |Search the game tree to determine the best action, using alpha-beta
 --  pruning. This version searches all the way to the leaves.
@@ -187,8 +194,15 @@ alphaBetaCutoff cutoffTest evalFn game state = a
 alphaBetaCutoff' :: (Game g s a) => Int -> GamePlayer g s a
 alphaBetaCutoff' lim game state = alphaBetaCutoff cutoffFn evalFn game state
     where
-        cutoffFn state depth = depth >= lim
+        cutoffFn state depth = depth == lim
         evalFn = heuristic game
+
+-- |Repeatedly try depth-limited minimax search with an increasing depth limit.
+--  This function returns a list of moves, with the nth element in the list
+--  corresponding to minimax with a cutoff of n.
+iterativeMinimax :: (NFData a, Game g s a) => g s a -> s -> [a]
+iterativeMinimax game state =
+    map (\d -> minimaxCutoff' d game state) [0..1000]
 
 -- |Repeatedly try depth-limited alpha-beta search with an increasing depth
 --  limit. This function returns a list of moves, each resulting from a deeper
