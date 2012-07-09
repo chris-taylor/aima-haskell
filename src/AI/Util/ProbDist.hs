@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 
-module AI.Probability where
+module AI.Util.ProbDist where
 
 import Control.Monad
 import Data.Map (Map)

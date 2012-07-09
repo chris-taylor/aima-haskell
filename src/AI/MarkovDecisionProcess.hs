@@ -7,7 +7,7 @@ import GHC.Float
 
 import qualified Data.Map as Map
 
-import AI.Probability
+import AI.Util.ProbDist
 import AI.Util.Util
 
 -- |Type for a utility function (a mapping from states to utilities)

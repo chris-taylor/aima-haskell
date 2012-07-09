@@ -27,12 +27,12 @@ Library
     Hs-Source-Dirs:     src
     Exposed-Modules:    AI.Search
                         AI.Games
-                        AI.Probability
                         AI.ConstraintSatisfaction
                         AI.MarkovDecisionProcess
                         AI.Example.Search
                         AI.Example.Games
                         AI.Util.Graph
+                        AI.Util.ProbDist
                         AI.Util.Queue
                         AI.Util.Table
                         AI.Util.Util
