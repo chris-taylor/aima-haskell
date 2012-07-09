@@ -60,13 +60,36 @@ enumerate = zip [0..]
 countIf :: (a -> Bool) -> [a] -> Int
 countIf p xs = length (filter p xs)
 
--- |Return the element of the target list that maximises a function.
-argMax :: (Ord b) => [a] -> (a -> b) -> a
-argMax xs f = fst $ L.maximumBy (O.comparing snd) $ zip xs (map f xs)
-
--- |Return the element of a list that minimises a function.
+-- |Return the element of a list that minimises a function. In case of a tie,
+--  return the element closest to the front of the list.
 argMin :: (Ord b) => [a] -> (a -> b) -> a
 argMin xs f = fst $ L.minimumBy (O.comparing snd) $ zip xs (map f xs)
+
+-- |Return a list of all elements that minimise a given function.
+argMinList :: (Ord b) => [a] -> (a -> b) -> [a]
+argMinList xs f = map (xs!!) indices
+    where
+        ys      = map f xs
+        minVal  = minimum ys
+        indices = L.findIndices (== minVal) ys
+
+-- |Return the element of a list that minimizes a function. In case of a tie,
+--  choose randomly.
+argMinRandomIO :: (Ord b) => [a] -> (a -> b) -> IO a
+argMinRandomIO xs f = randomChoiceIO (argMinList xs f)
+
+-- |Return the element of the target list that maximises a function.
+argMax :: (Ord b, Num b) => [a] -> (a -> b) -> a
+argMax xs f = argMin xs (negate . f)
+
+-- |Return a list of all elements that maximise a given function.
+argMaxList :: (Ord b, Num b) => [a] -> (a -> b) -> [a]
+argMaxList xs f = argMinList xs (negate . f)
+
+-- |Return the element of a list that maximises a function. In case of a tie,
+--  choose randomly.
+argMaxRandomIO :: (Ord b, Num b) => [a] -> (a -> b) -> IO a
+argMaxRandomIO xs f = argMinRandomIO xs (negate . f)
 
 -- |Create a function from a list of (argument, value) pairs.
 listToFunction :: (Ord a) => [(a,b)] -> a -> b
