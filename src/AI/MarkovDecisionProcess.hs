@@ -11,10 +11,10 @@ import AI.Util.ProbDist
 import AI.Util.Util
 
 -- |Type for a utility function (a mapping from states to utilities)
-type Utility s = Map s Double
+type Utility s = s -> Double
 
 -- |Type for a policy (a mapping from states to actions)
-type Policy s a = Map s a
+type Policy s a = s -> a
 
 -- |Class for a Markov Decision Process. An MDP is defined by an initial state,
 --  a transition model and a reward function. We may also specify a discount
@@ -59,7 +59,7 @@ class Ord s => MDP m s a where
 
 -- |Given an MDP and a utility function, determine the best policy.
 bestPolicy :: MDP m s a => m s a -> Utility s -> Policy s a
-bestPolicy mdp u = Map.fromList [ (s, bestAction s) | s <- stateList mdp ]
+bestPolicy mdp u = listToFunction [ (s, bestAction s) | s <- stateList mdp ]
     where
         bestAction s = argMax (actions mdp s) (expectedUtility mdp u s)
 
@@ -67,21 +67,27 @@ bestPolicy mdp u = Map.fromList [ (s, bestAction s) | s <- stateList mdp ]
 --  decision process and a particular utility function.
 expectedUtility :: MDP m s a => m s a -> Utility s -> s -> a -> Double
 expectedUtility mdp u s a =
-    float2Double $ expectation $ fmap (u!) $ transition mdp s a
+    float2Double $ expectation $ fmap u $ transition mdp s a
 
 -- |Solve a Markov Decision Process using value iteration.
 valueIteration :: MDP m s a =>
                   m s a     -- ^ Problem to be solved
-               -> Double    -- ^ Tolerance - determines when to terminate
+               -> Double    -- ^ Tolerance: determines when to terminate
                -> Utility s -- ^ The final utility function
-valueIteration mdp epsilon = go (mkUniversalMap states 0.0)
+valueIteration mdp epsilon = go (const 0.0)
     where
         go u = if delta < epsilon * (1 - gamma) / gamma then u1 else go u1
             where
-                delta = maximum [ abs (u1 ! s - u ! s) | s <- states ]
-                u1    = Map.fromList $ map (\s -> (s, f s)) states
+                delta = maximum [ abs (u1 s - u s) | s <- states ]
+                u1    = listToFunction $ map (\s -> (s, f s)) states
                 f s   = reward mdp s + gamma * maximum (g s)
                 g s   = [ expectedUtility mdp u s a | a <- actions mdp s ]
 
         gamma    = discountFactor mdp
         states   = stateList mdp
+
+-- |Solve a Markov Decision Process using policy iteration.
+--policyIteration :: MDP m s a =>
+--                   m s a
+--                -> Policy s a
+

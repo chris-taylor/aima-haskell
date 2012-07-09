@@ -7,7 +7,7 @@ import qualified System.Random as R
 
 import Control.Concurrent.STM
 import Control.DeepSeq
-import Data.Map (Map)
+import Data.Map (Map, (!))
 import System.CPUTime
 import System.Timeout
 
@@ -69,10 +69,8 @@ argMin :: (Ord b) => [a] -> (a -> b) -> a
 argMin xs f = fst $ L.minimumBy (O.comparing snd) $ zip xs (map f xs)
 
 -- |Create a function from a list of (argument, value) pairs.
-listToFunction :: (Eq a) => [(a,b)] -> a -> b
-listToFunction xs x = case lookup x xs of
-    Nothing -> error "Argument not found in list -- LISTTOFUNCTION"
-    Just y  -> y
+listToFunction :: (Ord a) => [(a,b)] -> a -> b
+listToFunction xs = (M.fromList xs !)
 
 -- |Transpose a list of lists.
 transpose :: [[a]] -> [[a]]
