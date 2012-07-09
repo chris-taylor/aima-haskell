@@ -55,16 +55,6 @@ class Ord var => CSP c var val where
     --   the constraint when they have values A == a and B == b.
     constraints :: c var val -> var -> val -> var -> val -> Bool
 
-    -- | Add (var, val) to a map of current assignments, discarding the old
-    --   value if any.
-    assign :: var -> val -> Assignment var val -> Map var val
-    assign = M.insert
-
-    -- | Remove (var, val) from assignments, i.e. backtrack. Do not call this
-    --   if you are assigning var to a new value - just call 'assign' for that.
-    unassign :: var -> Assignment var val -> Assignment var val
-    unassign = M.delete
-
     -- | Return the number of conflicts that var == val has with other
     --   variables currently assigned.
     nConflicts :: c var val -> var -> val -> Assignment var val -> Int
@@ -88,6 +78,17 @@ class Ord var => CSP c var val where
             noConflicts v = 
                 nConflicts csp v (assignment ! v) assignment == 0
 
+
+-- |Add (var, val) to a map of current assignments, discarding the old
+--  value if any.
+assign :: Ord var => var -> val -> Assignment var val -> Assignment var val
+assign = M.insert
+
+-- |Remove (var, val) from assignments, i.e. backtrack. Do not call this
+--  if you are assigning var to a new value - just call 'assign' for that.
+unassign :: Ord var => var -> Assignment var val -> Assignment var val
+unassign = M.delete
+
 --------------------------------------
 -- Constraint Propagation with AC-3 --
 --------------------------------------
@@ -96,7 +97,7 @@ class Ord var => CSP c var val where
 --  satisfaction problem until they are arc-consistent. A @Bool@ flag is also
 --  returned, with the value @False@ if an inconsistency is found and @True@ 
 --  otherwise.
-ac3 :: CSP c var val => c var val -> (Bool, Domain var val)
+ac3 :: CSP c var val => c var val -> Maybe (Domain var val)
 ac3 csp = go (domains csp) initial
     where
         -- |Initial queue of variable pairs to be tested.
@@ -104,12 +105,12 @@ ac3 csp = go (domains csp) initial
 
         -- |The main recursive function, which keeps track of the current
         --  works queue and the restricted domains.
-        go dom queue = if empty queue || not revised
-            then (True, dom')
-            else if null (dom' ! x)
-                then (False, dom')
-                else go dom' queue'
-
+        go dom queue
+            | empty queue = Just dom
+            | not revised = go dom rest 
+            | otherwise   = if null (dom' ! x)
+                                then Nothing
+                                else go dom' queue'
             where
                 ((x,y), rest)   = pop queue
                 (revised, dom') = removeInconsistentValues dom x y
@@ -126,6 +127,39 @@ ac3 csp = go (domains csp) initial
                 old = dom ! x
                 new = filter fun old
                 fun xv = any (\yv -> constraints csp x xv y yv) (dom ! y)
+
+---------------------
+-- Search for CSPs --
+---------------------
+
+backtrackingSearch :: CSP c var val => c var val -> Maybe (Assignment var val)
+backtrackingSearch csp = recursiveBacktracking csp M.empty
+
+recursiveBacktracking :: CSP c var val =>
+                         c var val
+                      -> Assignment var val
+                      -> Maybe (Assignment var val)
+recursiveBacktracking csp assignment = if M.size assignment == length (vars csp)
+    then Just assignment
+    else fun vals
+    where
+        var  = selectUnassignedVariable csp assignment
+        vals = orderDomainValues csp var assignment
+        
+        fun []     = Nothing
+        fun (v:vs) = if nConflicts csp var v assignment == 0
+            then do
+                dom <- inference csp var v
+                recursiveBacktracking csp (addToAssignment dom assignment)
+            else do
+                dom <- inference csp var v
+                recursiveBacktracking csp (unassign var $ delFromAssignment dom assignment)
+
+        selectUnassignedVariable = undefined
+        orderDomainValues = undefined
+        inference = undefined
+        addToAssignment = undefined
+        delFromAssignment = undefined
 
 -----------------
 -- Example CSP --
