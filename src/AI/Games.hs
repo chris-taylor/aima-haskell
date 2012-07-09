@@ -197,20 +197,6 @@ alphaBetaCutoff' lim game state = alphaBetaCutoff cutoffFn evalFn game state
         cutoffFn state depth = depth == lim
         evalFn = heuristic game
 
--- |Repeatedly try depth-limited minimax search with an increasing depth limit.
---  This function returns a list of moves, with the nth element in the list
---  corresponding to minimax with a cutoff of n.
-iterativeMinimax :: (NFData a, Game g s a) => g s a -> s -> [a]
-iterativeMinimax game state =
-    map (\d -> minimaxCutoff' d game state) [0..1000]
-
--- |Repeatedly try depth-limited alpha-beta search with an increasing depth
---  limit. This function returns a list of moves, each resulting from a deeper
---  search into the game tree.
-iterativeAlphaBeta :: (NFData a, Game g s a) => g s a -> s -> [a]
-iterativeAlphaBeta game state =
-    map (\d -> alphaBetaCutoff' d game state) [0..1000]
-
 ----------------------
 -- I/O Game Players --
 ----------------------
@@ -260,6 +246,14 @@ alphaBetaFullSearchPlayer g s = return (alphaBetaSearch g s)
 alphaBetaPlayer :: Game g s a => Int -> GamePlayerIO g s a
 alphaBetaPlayer n g s = return (alphaBetaCutoff' n g s)
 
+-- |A player that uses iterative deepening minimax search, looking as deep into
+--  the search tree as possible in a fixed time (measured in seconds).
+iterativeMinimaxPlayer :: (NFData a, Game g s a) => Double -> GamePlayerIO g s a
+iterativeMinimaxPlayer t g s = liftM head (timeLimited lim result)
+    where
+        lim    = round (t * 1000000)
+        result = iterativeAlphaBeta g s
+
 -- |A player that uses iterative deepening alpha/beta search, looking as deep
 --  into the search tree as possible in the time limit (measured in seconds).
 iterativeAlphaBetaPlayer :: (NFData a, Game g s a) => Double -> GamePlayerIO g s a
@@ -267,6 +261,20 @@ iterativeAlphaBetaPlayer t g s = liftM head (timeLimited lim result)
     where
         lim    = round (t * 1000000)
         result = iterativeAlphaBeta g s
+
+-- |Repeatedly try depth-limited minimax search with an increasing depth limit.
+--  This function returns a list of moves, with the nth element in the list
+--  corresponding to minimax with a cutoff of n.
+iterativeMinimax :: (NFData a, Game g s a) => g s a -> s -> [a]
+iterativeMinimax game state =
+    map (\d -> minimaxCutoff' d game state) [0..1000]
+
+-- |Repeatedly try depth-limited alpha-beta search with an increasing depth
+--  limit. This function returns a list of moves, each resulting from a deeper
+--  search into the game tree.
+iterativeAlphaBeta :: (NFData a, Game g s a) => g s a -> s -> [a]
+iterativeAlphaBeta game state =
+    map (\d -> alphaBetaCutoff' d game state) [0..1000]
 
 ----------------------------
 -- Routines to Play Games --

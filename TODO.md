@@ -29,7 +29,6 @@
 
 ## Games
 
-- Iterative deepening minimax search
 - Alpha-beta search that orders nodes according to some heuristic before searching
 - Stochastic games (using probability monad?)
 - Figure out why alpha/beta search sometimes makes stupid decisions while playing Connect 4
