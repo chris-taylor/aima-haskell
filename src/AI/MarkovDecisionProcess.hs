@@ -86,8 +86,34 @@ valueIteration mdp epsilon = go (const 0.0)
         gamma    = discountFactor mdp
         states   = stateList mdp
 
--- |Solve a Markov Decision Process using policy iteration.
---policyIteration :: MDP m s a =>
---                   m s a
---                -> Policy s a
+-- |Solve a Markov Decision Process using (modified) policy iteration.
+policyIteration :: (Eq a, MDP m s a) =>
+                   m s a        -- ^ Problem to be solved
+                -> Policy s a   -- ^ Final policy
+policyIteration mdp = go (\s -> head (actions mdp s)) (const 0)
+    where
+        go p u = if unchanged then p else go p1 u1
+            where
+                u1 = policyEvaluation mdp p u 20
+                p1 = bestPolicy mdp u1
+                unchanged = all (\s -> p s == p1 s) (stateList mdp)
 
+        gamma = discountFactor mdp
+
+-- |Return an updated utility mapp from each state in the MDP to its utility,
+--  using an approximation (modified policy iteration).
+policyEvaluation :: MDP m s a =>
+                    m s a       -- ^ Markov Decision Process
+                 -> Policy s a  -- ^ Policy to be evaluated
+                 -> Utility s   -- ^ Initial utility function
+                 -> Int         -- ^ Number of iterations
+                 -> Utility s   -- ^ Final utility function
+policyEvaluation mdp p u k = go u k
+    where
+        go u k = if k == 0 then u else go u1 (k - 1)
+            where
+                u1  = listToFunction [ (s, f s) | s <- stateList mdp ]
+                f s = reward mdp s + gamma * expectedUtility mdp u s (p s)
+
+        gamma = discountFactor mdp
+        
