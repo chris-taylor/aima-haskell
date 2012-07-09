@@ -29,6 +29,7 @@ Library
                         AI.Games
                         AI.Probability
                         AI.ConstraintSatisfaction
+                        AI.MarkovDecisionProcess
                         AI.Example.Search
                         AI.Example.Games
                         AI.Util.Graph
