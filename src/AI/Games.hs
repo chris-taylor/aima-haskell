@@ -88,10 +88,35 @@ minimaxDecision game state = a
             then utility game s player
             else maximum [ minValue s' | (_,s') <- successors game s ]
 
+-- |Minimax search with a cutoff. When the cutoff is reached we evaluate the
+--  state with a heuristic function instead of looking at its utility.
+minimaxCutoff :: (Game g s a) =>
+                 (s -> Int -> Bool)         -- ^ Cutoff function
+              -> (s -> Player -> Utility)   -- ^ Heuristic function
+              -> GamePlayer g s a
+minimaxCutoff cutoff heuristic game state = a
+    where
+        player = toMove game state
+        succs  = successors game state
+        (a,_)  = argMax succs (minValue 0 . snd)
+
+        minValue depth state
+            | terminalTest game state = utility game state player
+            | cutoff state depth      = heuristic state player
+            | otherwise               =
+                minimum [ maxValue (1+depth) s | (_,s) <- successors game state ]
+
+        maxValue depth state
+            | terminalTest game state = utility game state player
+            | cutoff state depth      = heuristic state player
+            | otherwise               = 
+                maximum [ minValue (1+depth) s | (_,s) <- successors game state ]
+
+
 -- |Search the game tree to determine the best action, using alpha-beta
 --  pruning. This version searches all the way to the leaves.
-alphaBetaFullSearch :: (Game g s a) => GamePlayer g s a
-alphaBetaFullSearch game state = a
+alphaBetaSearch :: (Game g s a) => GamePlayer g s a
+alphaBetaSearch game state = a
     where
         player = toMove game state
         succs  = successors game state
@@ -121,11 +146,11 @@ alphaBetaFullSearch game state = a
 
 -- |Search the game tree to determine the best action using alpha-beta pruning.
 --  This version cuts off the search and uses an evaluation function
-alphaBetaSearch :: (Game g s a) =>
+alphaBetaCutoff :: (Game g s a) =>
                    (s -> Int -> Bool)       -- ^ Cutoff test
                 -> (s -> Player -> Utility) -- ^ Evaluation function
                 -> GamePlayer g s a
-alphaBetaSearch cutoffTest evalFn game state = a
+alphaBetaCutoff cutoffTest evalFn game state = a
     where
         player = toMove game state
         succs  = successors game state
@@ -159,8 +184,8 @@ alphaBetaSearch cutoffTest evalFn game state = a
 
 -- |Version of alpha-beta search that cuts off the search at a depth limit,
 --  and uses the utility of a state as its evaluation function.
-alphaBetaSearch' :: (Game g s a) => Int -> GamePlayer g s a
-alphaBetaSearch' lim game state = alphaBetaSearch cutoffFn evalFn game state
+alphaBetaCutoff' :: (Game g s a) => Int -> GamePlayer g s a
+alphaBetaCutoff' lim game state = alphaBetaCutoff cutoffFn evalFn game state
     where
         cutoffFn state depth = depth >= lim
         evalFn = heuristic game
@@ -170,7 +195,7 @@ alphaBetaSearch' lim game state = alphaBetaSearch cutoffFn evalFn game state
 --  search into the game tree.
 iterativeAlphaBeta :: (NFData a, Game g s a) => g s a -> s -> [a]
 iterativeAlphaBeta game state =
-    map (\d -> alphaBetaSearch' d game state) [0..1000]
+    map (\d -> alphaBetaCutoff' d game state) [0..1000]
 
 ----------------------
 -- I/O Game Players --
@@ -215,11 +240,11 @@ minimaxPlayer g s = return (minimaxDecision g s)
 
 -- |A player that uses full alpha/beta search to make its move.
 alphaBetaFullSearchPlayer :: Game g s a => GamePlayerIO g s a
-alphaBetaFullSearchPlayer g s = return (alphaBetaFullSearch g s)
+alphaBetaFullSearchPlayer g s = return (alphaBetaSearch g s)
 
 -- |A player that uses alpha/beta search with a cutoff.
 alphaBetaPlayer :: Game g s a => Int -> GamePlayerIO g s a
-alphaBetaPlayer n g s = return (alphaBetaSearch' n g s)
+alphaBetaPlayer n g s = return (alphaBetaCutoff' n g s)
 
 -- |A player that uses iterative deepening alpha/beta search, looking as deep
 --  into the search tree as possible in the time limit (measured in seconds).
