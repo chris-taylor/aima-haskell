@@ -2,18 +2,19 @@
 
 module AI.Util.Table (Showable(..), printTable) where
 
--- |Showbox
+-- |A Showable is simply a box containing a value which is an instance of 'Show'.
 data Showable = forall a. Show a => SB a
 
+-- |To convert a 'Showable' to a 'String', just call 'show' on its contents.
 instance Show Showable where
   show (SB x) = show x
 
 -- |Print a table of data to stdout. You must supply the column width (number
 --  of chars) and a list of row and column names.
-printTable :: Int       -- ^ Column width
-           -> [[Showable]]     -- ^ Data
-           -> [String]  -- ^ Column names (including the 0th column)
-           -> [String]  -- ^ Row names
+printTable :: Int           -- ^ Column width
+           -> [[Showable]]  -- ^ Data
+           -> [String]      -- ^ Column names (including the 0th column)
+           -> [String]      -- ^ Row names
            -> IO ()
 printTable pad xs header rownames = do
     let horzLines = replicate (length header) (replicate pad '-')
@@ -24,7 +25,8 @@ printTable pad xs header rownames = do
     mapM_ (printRow pad '|') rows
     printRow pad '+' horzLines
 
--- |Print a single row of a table.
+-- |Print a single row of a table, padding each cell to the required size
+--  and inserting the specified separator between columns.
 printRow :: Int -> Char -> [String] -> IO ()
 printRow pad sep xs = do
     let ys = map (trim pad) xs

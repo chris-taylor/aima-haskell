@@ -67,9 +67,13 @@ class Game g s a where
 -- Search Algorithms --
 -----------------------
 
+-- |Type synonym for a player - a function that takes a game and a state of
+--  the game, and returns an action.
+type GamePlayer g s a = g s a -> s -> a
+
 -- |Given a state in a game, calculate the best move by searching forward all
 --  the way to the terminal states.
-minimaxDecision :: (Game g s a) => g s a -> s -> a
+minimaxDecision :: (Game g s a) => GamePlayer g s a
 minimaxDecision game state = a
     where
         player = toMove game state
@@ -86,7 +90,7 @@ minimaxDecision game state = a
 
 -- |Search the game tree to determine the best action, using alpha-beta
 --  pruning. This version searches all the way to the leaves.
-alphaBetaFullSearch :: (Game g s a) => g s a -> s -> a
+alphaBetaFullSearch :: (Game g s a) => GamePlayer g s a
 alphaBetaFullSearch game state = a
     where
         player = toMove game state
@@ -118,12 +122,10 @@ alphaBetaFullSearch game state = a
 -- |Search the game tree to determine the best action using alpha-beta pruning.
 --  This version cuts off the search and uses an evaluation function
 alphaBetaSearch :: (Game g s a) =>
-                   g s a                    -- ^ Game
-                -> (s -> Int -> Bool)       -- ^ Cutoff test
+                   (s -> Int -> Bool)       -- ^ Cutoff test
                 -> (s -> Player -> Utility) -- ^ Evaluation function
-                -> s                        -- ^ Starting state
-                -> a                        -- ^ Final move
-alphaBetaSearch game cutoffTest evalFn state = a
+                -> GamePlayer g s a
+alphaBetaSearch cutoffTest evalFn game state = a
     where
         player = toMove game state
         succs  = successors game state
@@ -157,29 +159,34 @@ alphaBetaSearch game cutoffTest evalFn state = a
 
 -- |Version of alpha-beta search that cuts off the search at a depth limit,
 --  and uses the utility of a state as its evaluation function.
-alphaBetaSearch' :: (Game g s a) => Int -> g s a -> s -> a
-alphaBetaSearch' lim game state = alphaBetaSearch game cutoffFn evalFn state
+alphaBetaSearch' :: (Game g s a) => Int -> GamePlayer g s a
+alphaBetaSearch' lim game state = alphaBetaSearch cutoffFn evalFn game state
     where
-        cutoffFn state depth = depth > lim
+        cutoffFn state depth = depth >= lim
         evalFn = heuristic game
 
 -- |Repeatedly try depth-limited alpha-beta search with an increasing depth
---  limit.
+--  limit. This function returns a list of moves, each resulting from a deeper
+--  search into the game tree.
 iterativeAlphaBeta :: (NFData a, Game g s a) => g s a -> s -> [a]
 iterativeAlphaBeta game state =
     map (\d -> alphaBetaSearch' d game state) [0..1000]
 
-------------------
--- Game Players --
-------------------
+----------------------
+-- I/O Game Players --
+----------------------
 
--- |Type synonym for a player - a function that takes a game and a state of
---  that game, and returns an action. The result type is IO a to allow for
+-- |Type synonym for an I/O player - a function that takes a game and a state
+--  and returns an I/O action. The result type is IO a to allow for
 --  reading moves from stdin or a file.
-type GamePlayer g s a = g s a -> s -> IO a
+type GamePlayerIO g s a = g s a -> s -> IO a
+
+-- |A player that chooses a move at random from all legal moves.
+randomPlayer :: Game g s a => GamePlayerIO g s a
+randomPlayer g s = randomChoiceIO (legalMoves g s)
 
 -- |A human player - reads moves from stdin.
-queryPlayer :: (Game g s a, Show s, Show a, Read a, Eq a) => g s a -> s -> IO a
+queryPlayer :: (Game g s a, Show s, Show a, Read a, Eq a) => GamePlayerIO g s a
 queryPlayer g s = getMove
     where
         getMove = putStr "Your move: " >> getLine >>= interpret
@@ -203,37 +210,57 @@ queryPlayer g s = getMove
             putStrLn "  q -- quit the game"
 
 -- |A player that uses the minimax algorithm to make its move.
-minimaxPlayer :: Game g s a => g s a -> s -> IO a
+minimaxPlayer :: Game g s a => GamePlayerIO g s a
 minimaxPlayer g s = return (minimaxDecision g s)
 
 -- |A player that uses full alpha/beta search to make its move.
-alphaBetaFullSearchPlayer :: Game g s a => g s a -> s -> IO a
+alphaBetaFullSearchPlayer :: Game g s a => GamePlayerIO g s a
 alphaBetaFullSearchPlayer g s = return (alphaBetaFullSearch g s)
 
 -- |A player that uses alpha/beta search with a cutoff.
-alphaBetaPlayer :: Game g s a => Int -> g s a -> s -> IO a
+alphaBetaPlayer :: Game g s a => Int -> GamePlayerIO g s a
 alphaBetaPlayer n g s = return (alphaBetaSearch' n g s)
 
 -- |A player that uses iterative deepening alpha/beta search, looking as deep
 --  into the search tree as possible in the time limit (measured in seconds).
-iterativeAlphaBetaPlayer :: (NFData a, Game g s a) => Double -> g s a -> s -> IO a
+iterativeAlphaBetaPlayer :: (NFData a, Game g s a) => Double -> GamePlayerIO g s a
 iterativeAlphaBetaPlayer t g s = liftM head (timeLimited lim result)
     where
         lim    = round (t * 1000000)
         result = iterativeAlphaBeta g s
 
--- |A player that chooses a move at random from all legal moves.
-randomPlayer :: Game g s a => g s a -> s -> IO a
-randomPlayer g s = randomChoiceIO (legalMoves g s)
+----------------------------
+-- Routines to Play Games --
+----------------------------
+
+-- |Play a game between two players, returning the result and the sequence
+--  of moves made.
+playGame :: (Game g s a) =>
+            g s a
+         -> GamePlayer g s a
+         -> GamePlayer g s a
+         -> (Utility, [a])
+playGame game p1 p2 = go (initial game) []
+    where
+        go state moves = if terminalTest game state
+            then (util, reverse moves)
+            else go (makeMove game action state) (action:moves)
+            where
+                util   = utility game state Max
+                player = toMove game state
+                action = if player == Max
+                            then p1 game state
+                            else p2 game state
 
 -- |Play a game between two players, printing out the states and moves made
---  on each turn.
-playGame :: (Game g s a, Show s, Show a) =>
-            g s a               -- ^ Game to play
-         -> GamePlayer g s a    -- ^ Player 1
-         -> GamePlayer g s a    -- ^ Player 2
-         -> IO s                -- ^ Final state
-playGame game p1 p2 = go (initial game)
+--  on each turn. The moves form each player are wrapped in the IO monad, to
+--  allow for time-limited moves and random and human players.
+playGameIO :: (Game g s a, Show s, Show a) =>
+            g s a                 -- ^ Game to play
+         -> GamePlayerIO g s a    -- ^ Player 1
+         -> GamePlayerIO g s a    -- ^ Player 2
+         -> IO s                  -- ^ Final state
+playGameIO game p1 p2 = go (initial game)
     where
         go state = if terminalTest game state
             then printResult state
@@ -298,7 +325,8 @@ instance (Game g s a) => Game (GameIO g) s a where
         modifyIORef k (+length succs)
         return succs
 
--- |Play a game, collecting statistics as we go.
+-- |Run an adverserial search algorithm to find the optimal move from a given
+--  state, collecting statistics as we go.
 runPlayerIO :: g s a
             -> s
             -> (GameIO g s a -> s -> a)

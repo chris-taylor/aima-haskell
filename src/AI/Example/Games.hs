@@ -192,7 +192,7 @@ instance Game Connect4 C4State C4Move where
                                 in makeMove g (col-1, row) s
 
     sortMoves (C (TTT h _ _)) as = L.sortBy (O.comparing f) as
-        where f x = abs (x - h `div` 2)
+        where f x = abs (x - (h+1) `div` 2)
 
     legalMoves (C g) s@(TTS board _ _ _) =
         [ x+1 | (x,y) <- legalMoves g s, y == 0 || (x,y-1) `M.member` board ]
