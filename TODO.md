@@ -22,20 +22,15 @@
 
 ## Search
 
-- More statistics, e.g. effective branching factor, time taken
+- More statistics, e.g. time taken
 - Is it possible to structure backtracking search as a monad?
-- Generate random graph problem instances
-- Make changes to n-queens problem
+- Make changes to n-queens problem so that it can be used with simulatedAnnealing search
 - Round effective branching factor to a sensible number of dps
 
 ## Games
 
-- Depth-limited and iterative deepening minimax search
+- Iterative deepening minimax search
 - Alpha-beta search that orders nodes according to some heuristic before searching
-- GameIO data type that collects statistics as the game is played, e.g. number of nodes expanded, number of times heuristic function is called, time taken.
-- Move ordering function - possibly make this a method of the Game class, with a default implementation of
-    orderMoves :: [a] -> [a]
-    orderMoves = id
 - Stochastic games (using probability monad?)
 - Figure out why alpha/beta search sometimes makes stupid decisions while playing Connect 4
 
