@@ -87,7 +87,6 @@ class Ord v => CSP c v a where
     allAssigned csp assignment = M.size assignment == length (vars csp)
 
 
-
 -- |Add (v, a) to a map of current assignments, discarding the old
 --  aue if any. Also update the current domain if necessary.
 assign :: (CSP c v a, Ord v) => c v a -> v -> a -> Backtracking v a ()
@@ -101,119 +100,10 @@ unassign :: (CSP c v a, Ord v) => c v a -> v -> Backtracking v a ()
 unassign csp var = do
     modifyAssignment $ M.delete var
     modifyDomain     $ M.insert var (domains csp ! var)
-
--- |Monad for backtracking search. We use a @StateT@ monad to keep track of the
---  current domain, pruned values and assigned values, and wrap a @Reader Opts@
---  monad to keep track of the various search options.
-type Backtracking a b c =
-    StateT (Domain a b, Domain a b, Assignment a b) (Reader Opts) c
-
-runBacktracking :: Backtracking a b c -> Domain a b -> Opts -> c
-runBacktracking computation dom opts =
-    runReader (evalStateT computation (dom, M.empty, M.empty)) opts
-
-getDomain :: MonadState (a,b,c) m => m a
-getDomain = get >>= return . fst3
-
-getPruned :: MonadState (a,b,c) m => m b
-getPruned = get >>= return . snd3
-
-getAssignment :: MonadState (a,b,c) m => m c
-getAssignment = get >>= return . thd3
-
-modifyDomain :: MonadState (a,b,c) m => (a -> a) -> m ()
-modifyDomain f = modify $ \(x,y,z) -> (f x,y,z)
-
-modifyPruned :: MonadState (a,b,c) m => (b -> b) -> m ()
-modifyPruned f = modify $ \(x,y,z) -> (x,f y,z)
-
-modifyAssignment :: MonadState (a,b,c) m => (c -> c) -> m ()
-modifyAssignment f = modify $ \(x,y,z) -> (x,y,f z)
-
---------------------------------------
--- Constraint Propagation with AC-3 --
---------------------------------------
-
--- |The arc-consistency algorithm AC-3 to reduce the domains of a constraint
---  satisfaction problem until they are arc-consistent. A @Bool@ flag is also
---  returned, with the value @False@ if an inconsistency is found and @True@ 
---  otherwise.
-runAC3 :: CSP c v a => c v a -> Maybe (Domain v a)
-runAC3 csp = runBacktracking (ac3 csp initial) (domains csp) defaultOpts
-    where
-        initial = [ (x, y) | x <- vars csp, y <- neighbours csp ! x ]
-
--- |The main recursive function, which keeps track of the current
---  works queue and the restricted domains.
-ac3 :: (CSP c v a, Queue q) =>
-      c v a                                 -- ^ CSP
-   -> q (v,v)                               -- ^ Variables to be tested
-   -> Backtracking v a (Maybe (Domain v a)) -- ^ Restricted domain or Nothing
-ac3 csp queue = if empty queue
-    then Just `fmap` getDomain
-    else do
-        revised <- removeInconsistentValues csp x y
-        if not revised
-            then ac3 csp rest
-            else getDomain >>= \dom -> if null (dom ! x)
-                                           then return Nothing
-                                           else ac3 csp queue'
-    where
-        ((x,y), rest) = pop queue
-        queue'        = extend new rest
-        new           = [ (z,x) | z <- L.delete y (neighbours csp ! x) ]
-
--- |Returns a new domain for x, together with a Bool flag indicating
---  whether the domain has been revised or not. An /inconsistent/ value for @x@
---  is one for which we can't find any value in the domain of @y@ such that the
---  constraints are satisfied.
-removeInconsistentValues :: CSP c v a =>
-                            c v a   -- ^ CSP
-                         -> v       -- ^ Var to restrict
-                         -> v       -- ^ Var to check against
-                         -> Backtracking v a Bool
-removeInconsistentValues csp x y = getDomain >>= \dom -> do
-
-    let old = dom ! x
-        new = filter fun old
-        fun xv = any (\yv -> constraints csp x xv y yv) (dom ! y)
-
-    if length new < length old
-        then (modifyDomain $ M.insert x new) >> return True
-        else return False
         
----------------------
--- Search for CSPs --
----------------------
-
--- |Options for recursive backtracking. We allow the following options:
---  
---  * 'useMCV' - use the Most Constrained Variable heuristic
---
---  * 'useLCV' - use the Least Constraining Variable heuristic
---
---  * 'useFC'  - use Forward Checking
---
---  * 'useMAC' - use Maintaining Arc Consistency
-data Opts = Opts
-    { mcv :: Bool
-    , lcv :: Bool
-    , fc  :: Bool
-    , mac :: Bool }
-
-defaultOpts = Opts False False False False
-
-useMcv :: MonadReader Opts m => m Bool
-useMcv = ask >>= return . mcv
-
-useLcv :: MonadReader Opts m => m Bool
-useLcv = ask >>= return . lcv
-
-useFc  :: MonadReader Opts m => m Bool
-useFc = ask >>= return . fc
-
-useMac :: MonadReader Opts m => m Bool
-useMac = ask >>= return . mac
+----------------------------------
+-- Backtracking Search for CSPs --
+----------------------------------
 
 -- |Backtracking search. This is a wrapper for `recursiveBacktracking' which
 --  sets up the options and the initial domain.
@@ -262,6 +152,131 @@ selectUnassignedVariable (v:vs) = getAssignment >>= \assgn ->
 orderDomainValues :: (Ord v) => v -> Backtracking v a [a]
 orderDomainValues var = getDomain >>= \dom -> return (dom ! var)
 
+--------------------------------------
+-- Constraint Propagation with AC-3 --
+--------------------------------------
+
+-- |The arc-consistency algorithm AC-3 to reduce the domains of a constraint
+--  satisfaction problem until they are arc-consistent. A @Bool@ flag is also
+--  returned, with the value @False@ if an inconsistency is found and @True@ 
+--  otherwise.
+runAC3 :: CSP c v a => c v a -> Maybe (Domain v a)
+runAC3 csp = runBacktracking (ac3 csp initial) (domains csp) defaultOpts
+    where
+        initial = [ (x, y) | x <- vars csp, y <- neighbours csp ! x ]
+
+-- |The main recursive function, which keeps track of the current
+--  works queue and the restricted domains.
+ac3 :: (CSP c v a, Queue q) =>
+       c v a                                 -- ^ CSP
+    -> q (v,v)                               -- ^ Variables to be tested
+    -> Backtracking v a (Maybe (Domain v a)) -- ^ Restricted domain or Nothing
+ac3 csp queue = if empty queue
+    then Just `fmap` getDomain
+    else do
+        revised <- removeInconsistentValues csp x y
+        if not revised
+            then ac3 csp rest
+            else getDomain >>= \dom -> if null (dom ! x)
+                                           then return Nothing
+                                           else ac3 csp queue'
+    where
+        ((x,y), rest) = pop queue
+        queue'        = extend new rest
+        new           = [ (z,x) | z <- L.delete y (neighbours csp ! x) ]
+
+-- |Returns a new domain for x, together with a Bool flag indicating
+--  whether the domain has been revised or not. An /inconsistent/ value for @x@
+--  is one for which we can't find any value in the domain of @y@ such that the
+--  constraints are satisfied.
+removeInconsistentValues :: CSP c v a =>
+                            c v a   -- ^ CSP
+                         -> v       -- ^ Var to restrict
+                         -> v       -- ^ Var to check against
+                         -> Backtracking v a Bool
+removeInconsistentValues csp x y = getDomain >>= \dom -> do
+
+    let old = dom ! x
+        new = filter fun old
+        fun xv = any (\yv -> constraints csp x xv y yv) (dom ! y)
+
+    if length new < length old
+        then (modifyDomain $ M.insert x new) >> return True
+        else return False
+
+-----------------------
+-- Utility Functions --
+-----------------------
+
+-- |Options for recursive backtracking. We allow the following options:
+--  
+--  * 'mcv' - use the Most Constrained Variable heuristic
+--
+--  * 'lcv' - use the Least Constraining Variable heuristic
+--
+--  * 'fc'  - use Forward Checking
+--
+--  * 'mac' - use Maintaining Arc Consistency
+data Opts = Opts
+    { mcv :: Bool
+    , lcv :: Bool
+    , fc  :: Bool
+    , mac :: Bool }
+
+-- |Default options for backtracking search. Don't use any heuristics.
+defaultOpts = Opts False False False False
+
+-- |Use Most Constrained Variable heuristic?
+useMcv :: MonadReader Opts m => m Bool
+useMcv = ask >>= return . mcv
+
+-- |Use Least Constraining Variable heuristic?
+useLcv :: MonadReader Opts m => m Bool
+useLcv = ask >>= return . lcv
+
+-- |Use Forwarc Checking?
+useFc  :: MonadReader Opts m => m Bool
+useFc = ask >>= return . fc
+
+-- |Use Maintaining Arc Consistency?
+useMac :: MonadReader Opts m => m Bool
+useMac = ask >>= return . mac
+
+-- |Monad for backtracking search. We use a @StateT@ monad to keep track of the
+--  current domain, pruned values and assigned values, and wrap a @Reader Opts@
+--  monad to keep track of the various search options.
+type Backtracking a b c =
+    StateT (Domain a b, Domain a b, Assignment a b) (Reader Opts) c
+
+-- |Use this to evaluate a computation in the 'Backtracking' monad.
+runBacktracking :: Backtracking a b c -> Domain a b -> Opts -> c
+runBacktracking computation dom opts =
+    runReader (evalStateT computation (dom, M.empty, M.empty)) opts
+
+-- |Return the current (constrained) domains in backtracking search.
+getDomain :: MonadState (a,b,c) m => m a
+getDomain = get >>= return . fst3
+
+-- |Modify the current constrained domains in backtracking search.
+modifyDomain :: MonadState (a,b,c) m => (a -> a) -> m ()
+modifyDomain f = modify $ \(x,y,z) -> (f x,y,z)
+
+-- |Return the list of pruned variables in backtracking search.
+getPruned :: MonadState (a,b,c) m => m b
+getPruned = get >>= return . snd3
+
+-- |Modify the list of pruned variables in backtracking search.
+modifyPruned :: MonadState (a,b,c) m => (b -> b) -> m ()
+modifyPruned f = modify $ \(x,y,z) -> (x,f y,z)
+
+-- |Return the current assignment list in backtracking search.
+getAssignment :: MonadState (a,b,c) m => m c
+getAssignment = get >>= return . thd3
+
+-- |Modify the list of assignments in backtracking search.
+modifyAssignment :: MonadState (a,b,c) m => (c -> c) -> m ()
+modifyAssignment f = modify $ \(x,y,z) -> (x,y,f z)
+
 -----------------
 -- Example CSP --
 -----------------
@@ -309,3 +324,4 @@ australia = mapColoringCSP territories "RGB"
                       , ("WA",  ["SA","NT"])
                       , ("Q",   ["SA","NT","NSW"])
                       , ("V",   ["SA","NSW"]) ]
+
