@@ -35,7 +35,10 @@
 
 ## Constraint Satisfaction
 
-- Examples
+- Recursive backtracking search
+- Search optimisatitons - min conflicts, forward checking, inference etc
+- Local search - minimum conflicts
+- Examples - sudoku, word puzzles, scheduling?
 
 ## Probability
 
