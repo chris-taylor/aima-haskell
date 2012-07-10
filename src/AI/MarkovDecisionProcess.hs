@@ -79,7 +79,7 @@ valueIteration mdp epsilon = go (const 0.0)
         go u = if delta < epsilon * (1 - gamma) / gamma then u1 else go u1
             where
                 delta = maximum [ abs (u1 s - u s) | s <- states ]
-                u1    = listToFunction $ map (\s -> (s, f s)) states
+                u1    = listToFunction $ [ (s,f s) | s <- states ]
                 f s   = reward mdp s + gamma * maximum (g s)
                 g s   = [ expectedUtility mdp u s a | a <- actions mdp s ]
 
@@ -116,4 +116,3 @@ policyEvaluation mdp p u k = go u k
                 f s = reward mdp s + gamma * expectedUtility mdp u s (p s)
 
         gamma = discountFactor mdp
-        
