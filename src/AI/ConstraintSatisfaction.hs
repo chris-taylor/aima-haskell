@@ -60,34 +60,11 @@ class Ord v => CSP c v a where
 
     -- |Return the number of conflicts that v == a has with other
     --  viables currently assigned.
-    nConflicts :: c v a -> v -> a -> Assignment v a -> Int
-    nConflicts csp v a assignment = countIf conflict assignedVals
+    numConflicts :: c v a -> v -> a -> Assignment v a -> Int
+    numConflicts csp v a assignment = countIf conflict assignedVals
         where
             assignedVals   = M.toList assignment
             conflict (x,y) = not (constraints csp v a x y)
-
-    -- |Add (v, a) to a map of current assignments, discarding the old
-    --  aue if any. Also update the current domain if necessary.
-    assign :: Ord v =>
-              c v a
-           -> v
-           -> a
-           -> Assignment v a
-           -> Backtracking v a (Assignment v a)
-    assign csp var val assignment = return (M.insert var val assignment)
-
-    -- |Remove (v, a) from assignments, i.e. backtrack. Do not call this
-    --  if you are assigning v to a new aue - just call 'assign' for that.
-    --  Also resets the current domain for this viable to the full domain
-    --  allowed by the CSP.
-    unassign :: Ord v =>
-                c v a
-             -> v
-             -> Assignment v a
-             -> Backtracking v a (Assignment v a)
-    unassign csp var assignment = do
-        modifyDomain $ M.insert var (domains csp ! var)
-        return (M.delete var assignment)
 
     -- |Do forward checking (current domain reduction) for this assignment.
     forwardCheck :: c v a -> v -> a -> Map v a -> ()
@@ -102,7 +79,7 @@ class Ord v => CSP c v a where
         allAssigned csp assignment && all noConflicts (vars csp)
         where
             noConflicts var = 
-                nConflicts csp var (assignment ! var) assignment == 0
+                numConflicts csp var (assignment ! var) assignment == 0
 
     -- |Check if an assignment is complete, i.e. there are no more viables
     --  left to assign.
@@ -111,27 +88,47 @@ class Ord v => CSP c v a where
 
 
 
+-- |Add (v, a) to a map of current assignments, discarding the old
+--  aue if any. Also update the current domain if necessary.
+assign :: (CSP c v a, Ord v) => c v a -> v -> a -> Backtracking v a ()
+assign csp var val = modifyAssignment (M.insert var val)
+
+-- |Remove (v, a) from assignments, i.e. backtrack. Do not call this
+--  if you are assigning v to a new value - just call 'assign' for that.
+--  Also resets the current domain for this variable to the full domain
+--  allowed by the CSP.
+unassign :: (CSP c v a, Ord v) => c v a -> v -> Backtracking v a ()
+unassign csp var = do
+    modifyAssignment $ M.delete var
+    modifyDomain     $ M.insert var (domains csp ! var)
+
 -- |Monad for backtracking search. We use a @StateT@ monad to keep track of the
---  current domain and pruned values, and wrap a @Reader Opts@ monad to keep
---  track of the various search options.
-type Backtracking a b c = StateT (Domain a b, Domain a b) (Reader Opts) c
+--  current domain, pruned values and assigned values, and wrap a @Reader Opts@
+--  monad to keep track of the various search options.
+type Backtracking a b c =
+    StateT (Domain a b, Domain a b, Assignment a b) (Reader Opts) c
 
 runBacktracking :: Backtracking a b c -> Domain a b -> Opts -> c
 runBacktracking computation dom opts =
-    runReader (evalStateT computation (dom, M.empty)) opts
+    runReader (evalStateT computation (dom, M.empty, M.empty)) opts
 
-getDomain :: MonadState (a,b) m => m a
-getDomain = get >>= return . fst
+getDomain :: MonadState (a,b,c) m => m a
+getDomain = get >>= return . fst3
 
-getPruned :: MonadState (a,b) m => m b
-getPruned = get >>= return . snd
+getPruned :: MonadState (a,b,c) m => m b
+getPruned = get >>= return . snd3
 
-modifyDomain :: MonadState (a,b) m => (a -> a) -> m ()
-modifyDomain f = modify $ \(x,y) -> (f x, y)
+getAssignment :: MonadState (a,b,c) m => m c
+getAssignment = get >>= return . thd3
 
-modifyPruned :: MonadState (a,b) m => (b -> b) -> m ()
-modifyPruned f = modify $ \(x,y) -> (x, f y)
+modifyDomain :: MonadState (a,b,c) m => (a -> a) -> m ()
+modifyDomain f = modify $ \(x,y,z) -> (f x,y,z)
 
+modifyPruned :: MonadState (a,b,c) m => (b -> b) -> m ()
+modifyPruned f = modify $ \(x,y,z) -> (x,f y,z)
+
+modifyAssignment :: MonadState (a,b,c) m => (c -> c) -> m ()
+modifyAssignment f = modify $ \(x,y,z) -> (x,y,f z)
 
 --------------------------------------
 -- Constraint Propagation with AC-3 --
@@ -222,51 +219,48 @@ useMac = ask >>= return . mac
 --  sets up the options and the initial domain.
 backtrackingSearch :: CSP c var val => c var val -> Maybe (Assignment var val)
 backtrackingSearch csp =
-    runBacktracking (recursiveBacktracking csp M.empty) (domains csp) defaultOpts
+    runBacktracking (recursiveBacktracking csp) (domains csp) defaultOpts
 
 -- |Recursive backtracking search. This is the main workhorse. We make use of
---  the state monad to store the current domains for each variable.
+--  the state monad to store the current domains for each variable, as well
+--  as the current assignments.
 recursiveBacktracking :: CSP c v a =>
                          c v a
-                      -> Assignment v a
                       -> Backtracking v a (Maybe (Assignment v a))
-recursiveBacktracking csp assignment = if allAssigned csp assignment
-    then return (Just assignment)
-    else do
-        var  <- selectUnassignedVariable csp assignment
-        vals <- orderDomainValues var assignment
-        go assignment var vals
-    where
-        go assignment var []     = return Nothing
-        go assignment var (v:vs) = if nConflicts csp var v assignment == 0
-            then do
-                assignment' <- assign csp var v assignment
-                result      <- recursiveBacktracking csp assignment'
-                if no result
-                    then do
-                        assignment' <- unassign csp var assignment
-                        go assignment' var vs
-                    else return result
-            else go assignment var vs
+recursiveBacktracking csp = getAssignment >>= \assgn ->
+    if allAssigned csp assgn
+        then return (Just assgn)
+        else do
+            var  <- selectUnassignedVariable (vars csp)
+            vals <- orderDomainValues var
+            go var vals
+        where
+            go var []     = return Nothing
+            go var (v:vs) = getAssignment >>= \assgn ->
+                if noConflicts var v assgn
+                    then do assign csp var v
+                            result <- recursiveBacktracking csp
+                            if no result
+                                then unassign csp var >> go var vs
+                                else return result
+                    else go var vs
+            
+            noConflicts var v a = numConflicts csp var v a == 0
 
 -- |Select an unassigned variable from the list of variables in a CSP. We may
 --  optionally use the heuristics Most Constrained Variable heuristic to choose
 --  which variable to assign next.
-selectUnassignedVariable :: CSP c var val => c var val -> Assignment var val -> Backtracking var val var
-selectUnassignedVariable csp assignment = return $ selectFrom (vars csp)
-    where
-        selectFrom []     = error "No unassigned variables -- SELECTUNASSIGNEDVARIABLE"
-        selectFrom (v:vs) = if v `M.notMember` assignment
-            then v
-            else selectFrom vs
+selectUnassignedVariable :: (Ord v) => [v] -> Backtracking v a v
+selectUnassignedVariable (v:vs) = getAssignment >>= \assgn ->
+    if v `M.notMember` assgn
+        then return v
+        else selectUnassignedVariable vs
 
 -- |Given a variable in a CSP, select an order in which to try the allowed
 --  values for that variable. We may optionally use the Least Constraining
 --  Variable heuristic to try values with fewest conflicts first.
-orderDomainValues :: (Ord v) => v -> Assignment v a -> Backtracking v a [a]
-orderDomainValues var assignment = do
-    dom <- getDomain
-    return (dom ! var)
+orderDomainValues :: (Ord v) => v -> Backtracking v a [a]
+orderDomainValues var = getDomain >>= \dom -> return (dom ! var)
 
 -----------------
 -- Example CSP --
