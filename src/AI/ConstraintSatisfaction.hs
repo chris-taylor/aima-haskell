@@ -139,7 +139,7 @@ recursiveBacktracking :: CSP c var val =>
                          c var val
                       -> Assignment var val
                       -> Maybe (Assignment var val)
-recursiveBacktracking csp assignment = if M.size assignment == length (vars csp)
+recursiveBacktracking csp assignment = if complete
     then Just assignment
     else fun vals
     where
@@ -154,6 +154,8 @@ recursiveBacktracking csp assignment = if M.size assignment == length (vars csp)
             else do
                 dom <- inference csp var v
                 recursiveBacktracking csp (unassign var $ delFromAssignment dom assignment)
+
+        complete = M.size assignment == length (vars csp)
 
         selectUnassignedVariable = undefined
         orderDomainValues = undefined
