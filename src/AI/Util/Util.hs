@@ -7,6 +7,7 @@ import qualified System.Random as R
 
 import Control.Concurrent.STM
 import Control.DeepSeq
+import Control.Monad
 import Data.Map (Map, (!))
 import System.CPUTime
 import System.Timeout
@@ -132,6 +133,18 @@ transpose xs = if or (map null xs)
 -- |A universal map maps all keys to the same value.
 mkUniversalMap :: Ord k => [k] -> a -> Map k a
 mkUniversalMap ks a = M.fromList $ zip ks (repeat a)
+
+-------------------------
+-- Monadic Combinators --
+-------------------------
+
+-- |Monadic 'when' statement.
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM test s = test >>= \p -> when p s
+
+-- |Monadic ternary 'if' statement.
+ifM :: Monad m => m Bool -> m a -> m a -> m a
+ifM test a b = test >>= \p -> if p then a else b
 
 --------------------
 -- Random Numbers -- 

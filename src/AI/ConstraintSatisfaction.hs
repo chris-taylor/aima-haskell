@@ -8,6 +8,7 @@ import Data.Map (Map, (!))
 
 import qualified Data.List as L
 import qualified Data.Map as M
+import qualified Data.Ord as O
 
 import AI.Util.Queue
 import AI.Util.Util
@@ -42,7 +43,7 @@ type Assignment a b = Map a b
 --
 --  The class also supports data structures and methods that help you
 --  solve CSPs by calling a search function on the CSP.
-class Ord v => CSP c v a where
+class (Ord v, Eq a) => CSP c v a where
 
     -- |A list of viables.
     vars :: c v a -> [v]
@@ -66,13 +67,6 @@ class Ord v => CSP c v a where
             assignedVals   = M.toList assignment
             conflict (x,y) = not (constraints csp v a x y)
 
-    -- |Do forward checking (current domain reduction) for this assignment.
-    forwardCheck :: c v a -> v -> a -> Map v a -> ()
-    forwardCheck = undefined
-
-    -- Return a list of (action, state) pairs.
-    -- succ :: c v a -> 
-
     -- |The goal is to assign all vars with all constraints satisfied.
     goalTest :: c v a -> Assignment v a -> Bool
     goalTest csp assignment =
@@ -89,31 +83,59 @@ class Ord v => CSP c v a where
 
 -- |Add (v, a) to a map of current assignments, discarding the old
 --  aue if any. Also update the current domain if necessary.
-assign :: (CSP c v a, Ord v) => c v a -> v -> a -> Backtracking v a ()
-assign csp var val = modifyAssignment (M.insert var val)
+assign :: CSP c v a => c v a -> v -> a -> Backtracking v a ()
+assign csp var val = do
+    modifyAssignment (M.insert var val)
+    whenM useFc  $ forwardCheck csp var val
+    whenM useMac $ (ac3 csp [ (x,var) | x <- neighbours csp ! var ]) >> return ()
 
 -- |Remove (v, a) from assignments, i.e. backtrack. Do not call this
 --  if you are assigning v to a new value - just call 'assign' for that.
 --  Also resets the current domain for this variable to the full domain
 --  allowed by the CSP.
-unassign :: (CSP c v a, Ord v) => c v a -> v -> Backtracking v a ()
+unassign :: CSP c v a => c v a -> v -> Backtracking v a ()
 unassign csp var = do
     modifyAssignment $ M.delete var
     modifyDomain     $ M.insert var (domains csp ! var)
-        
+
+-- |Do forward checking (current domain reduction) for a (var, val) pair.
+forwardCheck :: CSP c v a => c v a -> v -> a -> Backtracking v a ()
+forwardCheck csp var val = do
+    pruned <- getPruned
+    assgn  <- getAssignment
+    -- Restore prunings from previous value of var.
+    forM_ (pruned ! var) $ \(x,y) -> modifyDomain (restore x y)
+    -- Remove all prunings.
+    putPruned (mkUniversalMap (vars csp) [])
+    -- Prune any other assignment that conflicts with var = val.
+    forM_ (neighbours csp ! var) $ \x -> when (x `M.notMember` assgn) $
+        do dom <- getDomain
+           forM_ (dom ! x) $ \y -> when (not $ constraints csp var val x y) $
+                do modifyDomain (prune y)
+                   modifyPruned (add x y)
+    where
+        restore x y = M.adjust (y:) x
+        prune y     = M.adjust (L.delete y) var
+        add x y     = M.adjust ((x,y):) var
+
 ----------------------------------
 -- Backtracking Search for CSPs --
 ----------------------------------
 
--- |Backtracking search. This is a wrapper for `recursiveBacktracking' which
---  sets up the options and the initial domain.
-backtrackingSearch :: CSP c var val => c var val -> Maybe (Assignment var val)
-backtrackingSearch csp =
-    runBacktracking (recursiveBacktracking csp) (domains csp) defaultOpts
+-- |Backtracking search. This is a wrapper for 'recursiveBacktracking'. You
+--  need to supply the problem to be solved, and a set of options. The easiest
+--  (but slowest) method is to call this function with 'defaultOpts'.
+backtrackingSearch :: CSP c var val =>
+                      c var val     -- ^ Constraint Satisfaction Problem
+                   -> Opts          -- ^ Search options
+                   -> Maybe (Assignment var val)
+backtrackingSearch csp opts =
+    runBacktracking (recursiveBacktracking csp) (domains csp) opts
 
 -- |Recursive backtracking search. This is the main workhorse. We make use of
---  the state monad to store the current domains for each variable, as well
---  as the current assignments.
+--  the 'Backtracking' monad, which stores the current variable assignments,
+--  the current domain and a list of pruned values, as well as a list of
+--  options for the search.
 recursiveBacktracking :: CSP c v a =>
                          c v a
                       -> Backtracking v a (Maybe (Assignment v a))
@@ -122,7 +144,7 @@ recursiveBacktracking csp = getAssignment >>= \assgn ->
         then return (Just assgn)
         else do
             var  <- selectUnassignedVariable (vars csp)
-            vals <- orderDomainValues var
+            vals <- orderDomainValues csp var
             go var vals
         where
             go var []     = return Nothing
@@ -138,10 +160,25 @@ recursiveBacktracking csp = getAssignment >>= \assgn ->
             noConflicts var v a = numConflicts csp var v a == 0
 
 -- |Select an unassigned variable from the list of variables in a CSP. We may
---  optionally use the heuristics Most Constrained Variable heuristic to choose
---  which variable to assign next.
-selectUnassignedVariable :: (Ord v) => [v] -> Backtracking v a v
-selectUnassignedVariable (v:vs) = getAssignment >>= \assgn ->
+--  optionally use the Most Constrained Variable heuristic to choose which
+--  variable to assign next.
+selectUnassignedVariable :: Ord v => [v] -> Backtracking v a v
+selectUnassignedVariable vs = ifM useMcv
+    (mostConstrained vs)
+    (firstUnassigned vs)
+
+-- |Return the most constrained variable from a problem. The idea is to speed
+--  up the search algorithm by reducing the branching factor.
+mostConstrained :: Ord v => [v] -> Backtracking v a v
+mostConstrained vs = do
+    dom   <- getDomain
+    assgn <- getAssignment
+    let unassigned = [ v | v <- vs, v `M.notMember` assgn ]
+    return (argMin unassigned $ negate . numLegalValues dom)
+
+-- |Return the first unassigned variable in the problem.
+firstUnassigned :: Ord v => [v] -> Backtracking v a v
+firstUnassigned (v:vs) = getAssignment >>= \assgn ->
     if v `M.notMember` assgn
         then return v
         else selectUnassignedVariable vs
@@ -149,8 +186,29 @@ selectUnassignedVariable (v:vs) = getAssignment >>= \assgn ->
 -- |Given a variable in a CSP, select an order in which to try the allowed
 --  values for that variable. We may optionally use the Least Constraining
 --  Variable heuristic to try values with fewest conflicts first.
-orderDomainValues :: (Ord v) => v -> Backtracking v a [a]
-orderDomainValues var = getDomain >>= \dom -> return (dom ! var)
+orderDomainValues :: CSP c v a => c v a -> v -> Backtracking v a [a]
+orderDomainValues csp var = ifM useLcv
+    (leastConstraining csp var)
+    (allValues var)
+
+-- |Return a list of values for a given variable, sorted in order of least
+--  constraining to most constraining.
+leastConstraining :: CSP c v a => c v a -> v -> Backtracking v a [a]
+leastConstraining csp var = do
+    dom   <- getDomain
+    assgn <- getAssignment
+    return $ L.sortBy (O.comparing $ numConf assgn) (dom ! var)
+    where
+        numConf a val = numConflicts csp var val a
+
+-- |Return a list of all possible values for a given variable, without doing
+--  any sorting.
+allValues :: Ord v => v -> Backtracking v a [a]
+allValues var = getDomain >>= \dom -> return $ dom ! var
+
+-- |Return the number of legal values for a variable.
+numLegalValues :: Ord v => Domain v a -> v -> Int
+numLegalValues dom var = length (dom ! var)
 
 --------------------------------------
 -- Constraint Propagation with AC-3 --
@@ -246,12 +304,15 @@ useMac = ask >>= return . mac
 --  current domain, pruned values and assigned values, and wrap a @Reader Opts@
 --  monad to keep track of the various search options.
 type Backtracking a b c =
-    StateT (Domain a b, Domain a b, Assignment a b) (Reader Opts) c
+    StateT (Domain a b, Map a [(a,b)], Assignment a b) (Reader Opts) c
 
 -- |Use this to evaluate a computation in the 'Backtracking' monad.
-runBacktracking :: Backtracking a b c -> Domain a b -> Opts -> c
+runBacktracking :: Ord a => Backtracking a b c -> Domain a b -> Opts -> c
 runBacktracking computation dom opts =
-    runReader (evalStateT computation (dom, M.empty, M.empty)) opts
+    runReader (evalStateT computation (dom, prune, assgn)) opts
+    where
+        prune = mkUniversalMap (M.keys dom) []
+        assgn = M.empty
 
 -- |Return the current (constrained) domains in backtracking search.
 getDomain :: MonadState (a,b,c) m => m a
@@ -264,6 +325,10 @@ modifyDomain f = modify $ \(x,y,z) -> (f x,y,z)
 -- |Return the list of pruned variables in backtracking search.
 getPruned :: MonadState (a,b,c) m => m b
 getPruned = get >>= return . snd3
+
+-- |Store a new set of pruned values
+putPruned :: MonadState (a,b,c) m => b -> m ()
+putPruned p = get >>= \(x,y,z) -> put (x,p,z)
 
 -- |Modify the list of pruned variables in backtracking search.
 modifyPruned :: MonadState (a,b,c) m => (b -> b) -> m ()
