@@ -59,6 +59,10 @@ thd3 (_,_,c) = c
 -- List Functions --
 --------------------
 
+-- |Return 'True' if the list is not null.
+notNull :: [a] -> Bool
+notNull = not . null
+
 -- |Update the element at position i in a list.
 insert :: Int -> a -> [a] -> [a]
 insert 0 n (_:xs) = n : xs

@@ -59,27 +59,9 @@ class (Ord v, Eq a) => CSP c v a where
     --  the constraint when they have aues A == a and B == b.
     constraints :: c v a -> v -> a -> v -> a -> Bool
 
-    -- |Return the number of conflicts that v == a has with other
-    --  viables currently assigned.
-    numConflicts :: c v a -> v -> a -> Assignment v a -> Int
-    numConflicts csp v a assignment = countIf conflict assignedVals
-        where
-            assignedVals   = M.toList assignment
-            conflict (x,y) = not (constraints csp v a x y)
-
-    -- |The goal is to assign all vars with all constraints satisfied.
-    goalTest :: c v a -> Assignment v a -> Bool
-    goalTest csp assignment =
-        allAssigned csp assignment && all noConflicts (vars csp)
-        where
-            noConflicts var = 
-                numConflicts csp var (assignment ! var) assignment == 0
-
-    -- |Check if an assignment is complete, i.e. there are no more viables
-    --  left to assign.
-    allAssigned :: c v a -> Assignment v a -> Bool
-    allAssigned csp assignment = M.size assignment == length (vars csp)
-
+-------------------
+-- CSP Functions --
+-------------------
 
 -- |Add (v, a) to a map of current assignments, discarding the old
 --  aue if any. Also update the current domain if necessary.
@@ -87,7 +69,7 @@ assign :: CSP c v a => c v a -> v -> a -> Backtracking v a ()
 assign csp var val = do
     modifyAssignment (M.insert var val)
     whenM useFc  $ forwardCheck csp var val
-    whenM useMac $ (ac3 csp [ (x,var) | x <- neighbours csp ! var ]) >> return ()
+    whenM useMac $ ac3 csp [ (x,var) | x <- neighbours csp ! var ]
 
 -- |Remove (v, a) from assignments, i.e. backtrack. Do not call this
 --  if you are assigning v to a new value - just call 'assign' for that.
@@ -118,6 +100,27 @@ forwardCheck csp var val = do
         prune y     = M.adjust (L.delete y) var
         add x y     = M.adjust ((x,y):) var
 
+-- |Check if an assignment is complete, i.e. there are no more viables
+--  left to assign.
+allAssigned :: CSP c v a => c v a -> Assignment v a -> Bool
+allAssigned csp assignment = M.size assignment == length (vars csp)
+
+-- |Return the number of conflicts that v == a has with other
+--  viables currently assigned.
+numConflicts :: CSP c v a => c v a -> v -> a -> Assignment v a -> Int
+numConflicts csp v a assignment = countIf conflict assignedVals
+    where
+        assignedVals   = M.toList assignment
+        conflict (x,y) = not (constraints csp v a x y)
+
+-- |The goal is to assign all vars with all constraints satisfied.
+goalTest :: CSP c v a => c v a -> Assignment v a -> Bool
+goalTest csp assignment =
+    allAssigned csp assignment && all noConflicts (vars csp)
+    where
+        noConflicts var = 
+            numConflicts csp var (assignment ! var) assignment == 0
+
 ----------------------------------
 -- Backtracking Search for CSPs --
 ----------------------------------
@@ -130,7 +133,7 @@ backtrackingSearch :: CSP c var val =>
                    -> Opts          -- ^ Search options
                    -> Maybe (Assignment var val)
 backtrackingSearch csp opts =
-    runBacktracking (recursiveBacktracking csp) (domains csp) opts
+    evalBacktracking (recursiveBacktracking csp) (domains csp) opts
 
 -- |Recursive backtracking search. This is the main workhorse. We make use of
 --  the 'Backtracking' monad, which stores the current variable assignments,
@@ -215,29 +218,18 @@ numLegalValues dom var = length (dom ! var)
 --------------------------------------
 
 -- |The arc-consistency algorithm AC-3 to reduce the domains of a constraint
---  satisfaction problem until they are arc-consistent. A @Bool@ flag is also
---  returned, with the value @False@ if an inconsistency is found and @True@ 
---  otherwise.
-runAC3 :: CSP c v a => c v a -> Maybe (Domain v a)
-runAC3 csp = runBacktracking (ac3 csp initial) (domains csp) defaultOpts
-    where
-        initial = [ (x, y) | x <- vars csp, y <- neighbours csp ! x ]
-
--- |The main recursive function, which keeps track of the current
---  works queue and the restricted domains.
+--  satisfaction problem until they are arc-consistent. There is no return
+--  value. This function is only called for its effects on the current domain.
 ac3 :: (CSP c v a, Queue q) =>
        c v a                                 -- ^ CSP
     -> q (v,v)                               -- ^ Variables to be tested
-    -> Backtracking v a (Maybe (Domain v a)) -- ^ Restricted domain or Nothing
-ac3 csp queue = if empty queue
-    then Just `fmap` getDomain
-    else do
-        revised <- removeInconsistentValues csp x y
-        if not revised
-            then ac3 csp rest
-            else getDomain >>= \dom -> if null (dom ! x)
-                                           then return Nothing
-                                           else ac3 csp queue'
+    -> Backtracking v a () -- ^ Restricted domain or Nothing
+ac3 csp queue = when (notEmpty queue) $
+    do revised <- removeInconsistentValues csp x y
+       if not revised
+          then ac3 csp rest
+          else do dom <- getDomain
+                  when (notNull $ dom ! x) (ac3 csp queue')
     where
         ((x,y), rest) = pop queue
         queue'        = extend new rest
@@ -281,7 +273,8 @@ data Opts = Opts
     , fc  :: Bool
     , mac :: Bool }
 
--- |Default options for backtracking search. Don't use any heuristics.
+-- |Default options for backtracking search. Doesn't use any heuristics.
+defaultOpts :: Opts
 defaultOpts = Opts False False False False
 
 -- |Use Most Constrained Variable heuristic?
@@ -300,19 +293,31 @@ useFc = ask >>= return . fc
 useMac :: MonadReader Opts m => m Bool
 useMac = ask >>= return . mac
 
+-- |State variables for search in the 'Backtracking' monad.
+type BTState a b = (Domain a b, Map a [(a,b)], Assignment a b)
+
 -- |Monad for backtracking search. We use a @StateT@ monad to keep track of the
 --  current domain, pruned values and assigned values, and wrap a @Reader Opts@
 --  monad to keep track of the various search options.
-type Backtracking a b c =
-    StateT (Domain a b, Map a [(a,b)], Assignment a b) (Reader Opts) c
+type Backtracking a b c = StateT (BTState a b) (Reader Opts) c
 
--- |Use this to evaluate a computation in the 'Backtracking' monad.
-runBacktracking :: Ord a => Backtracking a b c -> Domain a b -> Opts -> c
-runBacktracking computation dom opts =
-    runReader (evalStateT computation (dom, prune, assgn)) opts
+-- |Use this to run a computation in the 'Backtracking' monad to extract
+--  the final state and value.
+runBacktracking :: Ord a => Backtracking a b c -> Domain a b -> Opts -> (c, BTState a b)
+runBacktracking computation dom opts = 
+    runReader (runStateT computation (dom, prune, assgn)) opts
     where
         prune = mkUniversalMap (M.keys dom) []
         assgn = M.empty
+
+-- |Use this to evaluate the result of computation in the 'Backtracking' monad.
+evalBacktracking :: Ord a => Backtracking a b c -> Domain a b -> Opts -> c
+evalBacktracking c dom opts = fst $ runBacktracking c dom opts
+
+-- |Use this to evaluate the final state of a computation in the 'Backtracking'
+--  monad.
+execBacktracking :: Ord a => Backtracking a b c -> Domain a b -> Opts -> BTState a b
+execBacktracking c dom opts = snd $ runBacktracking c dom opts
 
 -- |Return the current (constrained) domains in backtracking search.
 getDomain :: MonadState (a,b,c) m => m a

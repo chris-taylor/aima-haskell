@@ -3,12 +3,19 @@ module AI.Util.Queue where
 -- |An abstract Queue class supporting a test for emptiness and push/pop
 --  functions. You can override the function 'extend' for performance reasons.
 class Queue q where
+    -- |Return 'True' if the queue is empty.
     empty  :: q a -> Bool
+    -- |Pop an element from the front of the queue, also returning
+    --  the remaining queue.
     pop    :: q a -> (a, q a)
+    -- |Push a new element into the queue.
     push   :: a -> q a -> q a
-
+    -- |Push a list of elements into the queue one by one.
     extend :: [a] -> q a -> q a
     extend xs q = foldr push q xs
+
+notEmpty :: Queue q => q a -> Bool
+notEmpty = not . empty
 
 -- |Lists can represent LIFO queues if 'push' conses new elements onto the
 --  front of the queue.
