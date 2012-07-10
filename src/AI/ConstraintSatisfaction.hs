@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, TypeSynonymInstances, FlexibleInstances #-}
 
 module AI.ConstraintSatisfaction where
 
@@ -282,3 +282,36 @@ instance CSP ExampleCSP Char Int where
     domains _ = M.fromList [ ('X', [1,2]), ('Y', [1]) ]
     neighbours _ = M.fromList [ ('X',"Y"), ('Y',"X") ]
     constraints _ x xv y yv = xv /= yv
+
+----------------------
+-- Map Coloring CSP --
+----------------------
+
+data MapColoringCSP v a = MC
+    { neighboursMC :: Map String [String]
+    , colorsMC :: [Char] }
+
+mapColoringCSP :: [(String,[String])] -> [Char] -> MapColoringCSP String Char
+mapColoringCSP nbrs colors = MC (M.fromList nbrs) colors
+
+instance CSP MapColoringCSP String Char where
+    vars (MC nbrs _) = M.keys nbrs
+
+    domains csp = mkUniversalMap (vars csp) (colorsMC csp)
+
+    neighbours (MC nbrs _) = nbrs
+
+    constraints csp x xv y yv = if y `elem` neighbours csp ! x
+        then xv /= yv
+        else True
+
+australia :: MapColoringCSP String Char
+australia = mapColoringCSP territories "RGB"
+    where
+        territories = [ ("SA",  ["WA","NT","Q","NSW","V"])
+                      , ("NT",  ["WA","Q","SA"])
+                      , ("NSW", ["Q","V","SA"])
+                      , ("T",   [])
+                      , ("WA",  ["SA","NT"])
+                      , ("Q",   ["SA","NT","NSW"])
+                      , ("V",   ["SA","NSW"]) ]
