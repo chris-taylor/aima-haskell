@@ -221,9 +221,9 @@ numLegalValues dom var = length (dom ! var)
 --  satisfaction problem until they are arc-consistent. There is no return
 --  value. This function is only called for its effects on the current domain.
 ac3 :: (CSP c v a, Queue q) =>
-       c v a                                 -- ^ CSP
-    -> q (v,v)                               -- ^ Variables to be tested
-    -> Backtracking v a () -- ^ Restricted domain or Nothing
+       c v a                -- ^ CSP
+    -> q (v,v)              -- ^ Variables to be tested
+    -> Backtracking v a ()  -- ^ Restricted domain or Nothing
 ac3 csp queue = when (notEmpty queue) $
     do revised <- removeInconsistentValues csp x y
        if not revised
@@ -235,10 +235,10 @@ ac3 csp queue = when (notEmpty queue) $
         queue'        = extend new rest
         new           = [ (z,x) | z <- L.delete y (neighbours csp ! x) ]
 
--- |Returns a new domain for x, together with a Bool flag indicating
---  whether the domain has been revised or not. An /inconsistent/ value for @x@
---  is one for which we can't find any value in the domain of @y@ such that the
---  constraints are satisfied.
+-- |Remove values for a variable that are inconsistent with the constraints.
+--  Returns a 'Bool' flag indicating whether the domain has been revised or not.
+--  An /inconsistent/ value for @x@ is one for which we can't find any value in
+--  the domain of @y@ such that the constraints are satisfied.
 removeInconsistentValues :: CSP c v a =>
                             c v a   -- ^ CSP
                          -> v       -- ^ Var to restrict
