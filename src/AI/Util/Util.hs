@@ -32,6 +32,15 @@ posInf = 1/0
 negInf :: Fractional a => a
 negInf = -1/0
 
+---------------------
+-- Maybe Functions --
+---------------------
+
+-- |Return 'True' if a 'Maybe' value is 'Nothing', else 'False'.
+no :: Maybe a -> Bool
+no Nothing = True
+no _       = False
+
 --------------------
 -- List Functions --
 --------------------
