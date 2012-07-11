@@ -4,6 +4,7 @@ module AI.Example.ConstraintSatisfaction where
 
 import Data.Map (Map, (!))
 import qualified Data.Map as M
+import qualified Data.List as L
 
 import AI.Util.Graph (Graph)
 import AI.Util.Util
@@ -69,3 +70,22 @@ usa = MCP states "RGBY"
             \PA: NY NJ DE MD WV; WV: MD VA; VA: MD DC NC; NC: SC; NY: VT MA CA NJ;\
             \NJ: DE; DE: MD; MD: DC; VT: NH MA; MA: NH RI CT; CT: RI; ME: NH;\
             \HI: ; AK: "
+
+------------
+-- Sudoku --
+------------
+
+cross xs ys = [ [x,y] | x <- xs, y <- ys ]
+
+rows = "abcdefghi"
+cols = "123456789"
+
+squares = cross rows cols
+
+unitlist = [ cross rows c | c <- map return cols ] ++
+           [ cross r cols | r <- map return rows ] ++
+           [ cross rs cs | rs <- ["abc","def","ghi"], cs <- ["123","456","789"] ]
+
+units = [ (s, [ u | u <- unitlist, s `elem` u ]) | s <- squares ]
+
+peers = [ (s, L.delete s $ L.nub $ concat u) | (s,u) <- units ]
