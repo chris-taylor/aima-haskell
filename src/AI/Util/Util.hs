@@ -90,7 +90,7 @@ countIf p xs = length (filter p xs)
 -- |Return the element of a list that minimises a function. In case of a tie,
 --  return the element closest to the front of the list.
 argMin :: (Ord b) => [a] -> (a -> b) -> a
-argMin xs f = fst $ L.minimumBy (O.comparing snd) $ zip xs (map f xs)
+argMin xs f = L.minimumBy (O.comparing f) xs
 
 -- |Return a list of all elements that minimise a given function.
 argMinList :: (Ord b) => [a] -> (a -> b) -> [a]
