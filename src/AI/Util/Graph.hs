@@ -6,11 +6,18 @@ module AI.Util.Graph
     , getNeighbours
     , getEdge
     , addEdge
-    , addUndirectedEdge ) where
+    , addUndirectedEdge
+    , UnweightedGraph(..)
+    , parseGraph ) where
 
 import Data.Map (Map, (!))
 import qualified Data.Map as M
 import qualified Data.List as L
+import qualified Data.Text as T
+
+---------------------
+-- Weighted Graphs --
+---------------------
 
 -- |A graph connects vertices (nodes) by edges (actions). Each edge can also 
 --  have a weight associated with it. To build a graph, call one of the
@@ -80,3 +87,62 @@ fromPairRep xs = go xs M.empty
                 newMap = M.insert b c $ case M.lookup a m of
                     Nothing -> M.empty
                     Just m' -> m'
+
+-----------------------
+-- Unweighted Graphs --
+-----------------------
+
+-- |Type for unweighted graphs
+type UnweightedGraph a = Map a [a]
+
+-- |Create a directed graph from an adjacency list.
+toUnweightedGraph :: (Ord a) => [(a, [a])] -> UnweightedGraph a
+toUnweightedGraph = M.fromList
+
+-- |Create an undirected graph from an adjacency list.
+toUnweightedUndirectedGraph :: Ord a => [(a, [a])] -> UnweightedGraph a
+toUnweightedUndirectedGraph xs = fromPairRepUnweighted . symmetrizeUnweighted .
+    toPairRepUnweighted $ toUnweightedGraph xs
+
+-- |Convert an unweighted graph to its adjacency list representation.
+fromGraphUnweighted :: UnweightedGraph a -> [(a, [a])]
+fromGraphUnweighted = M.toList
+
+-- |Convert an unweighted graph to its ordered pair representation.
+toPairRepUnweighted :: UnweightedGraph a -> [(a,a)]
+toPairRepUnweighted xs = [ (a,b) | (a,bs) <- fromGraphUnweighted xs, b <- bs ]
+
+-- |Take an unweighted graph in ordered pair representation and add in all of
+--  the reverse links, so that the resulting graph is directed.
+symmetrizeUnweighted :: Eq a => [(a,a)] -> [(a,a)]
+symmetrizeUnweighted xs = L.nub $ concat [ [(a,b),(b,a)] | (a,b) <- xs ]
+
+-- |Convert an unweighted graph from its ordered pair representation.
+fromPairRepUnweighted :: Ord a => [(a,a)] -> UnweightedGraph a
+fromPairRepUnweighted xs = go xs M.empty
+    where
+        go []         m = m
+        go ((a,b):xs) m = go xs (M.insert a newList m)
+            where
+                newList = b : case M.lookup a m of
+                    Nothing -> []
+                    Just l  -> l
+
+-- |Parse an unweighted graph from a string. The string must be a semicolon-
+--  separated list of associations between nodes and neighours. Each association
+--  has the head node on the left, followed by a colon, followed by a list of
+--  neighbours, for example:
+--
+--  > "A: B C; B: C D; C: D"
+--
+--  It is not necessary to specify reverse links - they will be added
+--  automatically.
+parseGraph :: String -> UnweightedGraph String
+parseGraph str = toUnweightedUndirectedGraph $ textToStr $ splitNbrs $
+                 parseNodes $ splitNodes $ T.pack str
+    where
+        splitNodes = map T.strip . T.split (== ';')
+        parseNodes = map listToPair . map (T.split (== ':'))
+        splitNbrs  = map (\(x,y) -> (x, T.words y))
+        textToStr  = map (\(x,y) -> (T.unpack x, map T.unpack y))
+        listToPair [x,y] = (x,y)
