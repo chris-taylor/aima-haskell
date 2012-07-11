@@ -33,6 +33,7 @@ Library
                         AI.Example.Games
                         AI.Example.ConstraintSatisfaction
                         AI.Util.Graph
+                        AI.Util.WeightedGraph
                         AI.Util.ProbDist
                         AI.Util.Queue
                         AI.Util.Table

@@ -13,7 +13,6 @@ import qualified System.Random as R
 
 import AI.Games
 import AI.Util.Util
-import AI.Util.Graph (Graph)
 
 ----------------------------
 -- Example Game (Fig 5.2) --

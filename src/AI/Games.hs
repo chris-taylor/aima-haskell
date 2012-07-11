@@ -9,8 +9,6 @@ import System.IO.Unsafe
 
 import AI.Util.Util
 
-import qualified AI.Util.Graph as G
-
 -- |The type used to represent utilities
 type Utility = Double
 

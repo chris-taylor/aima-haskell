@@ -17,11 +17,11 @@ import qualified Data.Ord as O
 import qualified System.Random as R
 
 import AI.Search
-import AI.Util.Graph (Graph)
+import AI.Util.WeightedGraph (WeightedGraph)
 import AI.Util.Table
 import AI.Util.Util
 
-import qualified AI.Util.Graph as G
+import qualified AI.Util.WeightedGraph as G
 
 -------------------------------
 -- Graphs and Graph Problems --
@@ -30,7 +30,7 @@ import qualified AI.Util.Graph as G
 -- |Data structure to hold a graph (edge weights correspond to the distance
 --  between nodes) and a map of graph nodes to locations.
 data GraphMap a = G
-    { getGraph     :: Graph a Cost
+    { getGraph     :: WeightedGraph a Cost
     , getLocations :: Map a Location } deriving (Show)
 
 -- |Type synonym for a pair of doubles, representing a location in cartesian
@@ -376,7 +376,7 @@ allSearchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
 
 -- |Names for the search algorithms in this module.
 allSearcherNames :: [String]
-allSearcherNames = [ "Breadth First Tree Search", "Breadth First Graph Search"
-                   , "Depth First Graph Search", "Iterative Deepening Search"
+allSearcherNames = [ "Breadth First Tree Search", "Breadth First WeightedGraph Search"
+                   , "Depth First WeightedGraph Search", "Iterative Deepening Search"
                    , "Greedy Best First Search", "Uniform Cost Search"
                    , "A* Search"]
