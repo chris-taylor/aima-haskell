@@ -77,9 +77,9 @@ usa = MCP states "RGBY"
 -- Sudoku --
 ------------
 
-data Sudoku v a = Sudoku (Domain String Int) deriving Show
+data Sudoku v a = Sudoku (Domain String Char) deriving Show
 
-instance CSP Sudoku String Int where
+instance CSP Sudoku String Char where
     vars s = squares
     domains (Sudoku dom) = dom
     neighbours s = M.fromList peers
@@ -100,13 +100,13 @@ unitlist = [ cross rows c | c <- map return cols ] ++
 units    = [ (s, [ u | u <- unitlist, s `elem` u ]) | s <- squares ]
 peers    = [ (s, L.delete s $ L.nub $ concat u) | (s,u) <- units ]
 
-parseGrid :: String -> Sudoku String Int
+parseGrid :: String -> Sudoku String Char
 parseGrid grid =
-    Sudoku $ foldr update (mkUniversalMap squares [1..9]) initial
+    Sudoku $ foldr update (mkUniversalMap squares digits) initial
     where
         update (x,y) = if y `elem` digits
-            then M.insert x [C.digitToInt y]
-            else M.insert x [1..9]
+            then M.insert x [y]
+            else M.insert x digits
         initial = zip squares $ filter (`elem` ( "0." ++ digits)) grid
 
 sudoku1 = parseGrid "003020600900305001001806400008102900700000008006708200002609500800203009005010300"
