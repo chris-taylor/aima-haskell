@@ -13,33 +13,32 @@
 ## Utils
 
 - Extensions to table-generating code. For example:
-  - Produce a table as a string
-  - Write tables to arbitrary handles
-  - More customisable table layout
+  - Produce a table as a string.
+  - Write tables to arbitrary handles.
+  - More customisable table layout.
   - Use an external library?
-- Improve queueing module to use a more efficient data structure
-- Organize Utils module into subsections
+- Improve queueing module to use a more efficient data structure.
+- Organize Utils module into subsections.
 
 ## Search
 
-- More statistics, e.g. time taken
+- More statistics, e.g. time taken.
 - Is it possible to structure backtracking search as a monad?
-- Make changes to n-queens problem so that it can be used with simulatedAnnealing search
-- Round effective branching factor to a sensible number of dps
+- Make changes to n-queens problem so that it can be used with simulatedAnnealing search.
+- Round effective branching factor to a sensible number of dps.
 
 ## Games
 
-- Alpha-beta search that orders nodes according to some heuristic before searching
+- Alpha-beta search that orders nodes according to some heuristic before searching.
 - Stochastic games (using probability monad?)
-- Figure out why alpha/beta search sometimes makes stupid decisions while playing Connect 4
+- Figure out why alpha/beta search sometimes makes stupid decisions while playing Connect 4.
 
 ## Constraint Satisfaction
 
-- Recursive backtracking search
-- Search optimisatitons - min conflicts, forward checking, inference etc
-- Local search - minimum conflicts
+- Local search - minimum conflicts.
+- Wrapper for CSP class to allow statistics to be collected.
 - Examples - sudoku, word puzzles, scheduling?
 
 ## Probability
 
-- Flesh out functionality
+- Flesh out functionality.
