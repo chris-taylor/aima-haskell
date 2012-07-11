@@ -3,6 +3,8 @@
 module AI.Example.ConstraintSatisfaction where
 
 import Data.Map (Map, (!))
+
+import qualified Data.Char as C
 import qualified Data.Map as M
 import qualified Data.List as L
 
@@ -75,17 +77,38 @@ usa = MCP states "RGBY"
 -- Sudoku --
 ------------
 
+cross :: [a] -> [a] -> [[a]]
 cross xs ys = [ [x,y] | x <- xs, y <- ys ]
 
-rows = "abcdefghi"
-cols = "123456789"
-
-squares = cross rows cols
-
+digits   = "123456789"
+rows     = "abcdefghi"
+cols     = digits
+squares  = cross rows cols
 unitlist = [ cross rows c | c <- map return cols ] ++
            [ cross r cols | r <- map return rows ] ++
            [ cross rs cs | rs <- ["abc","def","ghi"], cs <- ["123","456","789"] ]
+units    = [ (s, [ u | u <- unitlist, s `elem` u ]) | s <- squares ]
+peers    = [ (s, L.delete s $ L.nub $ concat u) | (s,u) <- units ]
 
-units = [ (s, [ u | u <- unitlist, s `elem` u ]) | s <- squares ]
+data Sudoku v a = Sudoku (Domain String Int) deriving Show
 
-peers = [ (s, L.delete s $ L.nub $ concat u) | (s,u) <- units ]
+parseGrid :: String -> Sudoku String Int
+parseGrid grid =
+    Sudoku $ foldr update (mkUniversalMap squares [1..9]) (zip squares grid)
+    where
+        update (x,y) = if y `elem` digits
+            then M.insert x [C.digitToInt y]
+            else M.insert x [1..9]
+
+instance CSP Sudoku String Int where
+
+    vars s = squares
+
+    domains (Sudoku dom) = dom
+
+    neighbours s = M.fromList peers
+
+    constraints s x xv y yv = if x `elem` neighbours s ! y
+        then xv /= yv
+        else True
+
