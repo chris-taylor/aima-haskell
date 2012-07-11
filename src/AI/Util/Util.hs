@@ -10,6 +10,7 @@ import Control.DeepSeq
 import Control.Monad
 import Data.Map (Map, (!))
 import System.CPUTime
+import System.Random
 import System.Timeout
 
 -----------------
@@ -89,11 +90,11 @@ countIf p xs = length (filter p xs)
 
 -- |Return the element of a list that minimises a function. In case of a tie,
 --  return the element closest to the front of the list.
-argMin :: (Ord b) => [a] -> (a -> b) -> a
+argMin :: Ord b => [a] -> (a -> b) -> a
 argMin xs f = L.minimumBy (O.comparing f) xs
 
 -- |Return a list of all elements that minimise a given function.
-argMinList :: (Ord b) => [a] -> (a -> b) -> [a]
+argMinList :: Ord b => [a] -> (a -> b) -> [a]
 argMinList xs f = map (xs!!) indices
     where
         ys      = map f xs
@@ -101,9 +102,14 @@ argMinList xs f = map (xs!!) indices
         indices = L.findIndices (== minVal) ys
 
 -- |Return the element of a list that minimizes a function. In case of a tie,
+--  choose randomly with the given generator.
+argMinRandom :: (Ord b, RandomGen g) => g -> [a] -> (a -> b) -> (a, g)
+argMinRandom g xs f = randomChoice g (argMinList xs f)
+
+-- |Return the element of a list that minimizes a function. In case of a tie,
 --  choose randomly.
-argMinRandomIO :: (Ord b) => [a] -> (a -> b) -> IO a
-argMinRandomIO xs f = randomChoiceIO (argMinList xs f)
+argMinRandomIO :: Ord b => [a] -> (a -> b) -> IO a
+argMinRandomIO xs f = getStdGen >>= \g -> return $ fst $ argMinRandom g xs f
 
 -- |Return the element of the target list that maximises a function.
 argMax :: (Ord b, Num b) => [a] -> (a -> b) -> a
@@ -112,6 +118,11 @@ argMax xs f = argMin xs (negate . f)
 -- |Return a list of all elements that maximise a given function.
 argMaxList :: (Ord b, Num b) => [a] -> (a -> b) -> [a]
 argMaxList xs f = argMinList xs (negate . f)
+
+-- |Return the element of a list that maximises a function. In case of a tie,
+--  choose randomly with the given generator.
+argMaxRandom :: (Ord b, Num b, RandomGen g) => g -> [a] -> (a -> b) -> (a, g)
+argMaxRandom g xs f = argMinRandom g xs (negate . f)
 
 -- |Return the element of a list that maximises a function. In case of a tie,
 --  choose randomly.
@@ -154,12 +165,21 @@ ifM test a b = test >>= \p -> if p then a else b
 -- Random Numbers -- 
 --------------------
 
--- |Choose a random element from a list
+-- |Choose a random element from a list, given a generator.
+randomChoice :: RandomGen g => g -> [a] -> (a, g)
+randomChoice g [] = error "Empty list -- RANDOMCHOICE"
+randomChoice g xs = (xs !! n, next)
+    where
+        (n, next) = randomR (0, length xs - 1) g
+
+-- |Choose a random element from a list, in the IO monad.
 randomChoiceIO :: [a] -> IO a
-randomChoiceIO [] = error "Empty list -- RANDOMCHOICEIO"
-randomChoiceIO xs = do
-    n <- R.randomRIO (0,length xs - 1)
-    return (xs !! n)
+randomChoiceIO xs = getStdGen >>= \g -> return $ fst $ randomChoice g xs
+
+--randomChoiceIO [] = error "Empty list -- RANDOMCHOICEIO"
+--randomChoiceIO xs = do
+--    n <- R.randomRIO (0,length xs - 1)
+--    return (xs !! n)
 
 -- |Return @True@ with probability p.
 probabilityIO :: (R.Random a, Ord a, Num a) => a -> IO Bool

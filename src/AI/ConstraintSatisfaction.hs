@@ -5,6 +5,7 @@ module AI.ConstraintSatisfaction where
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Map (Map, (!))
+import System.Random
 
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -99,6 +100,11 @@ forwardCheck csp var val = do
         restore x y = M.adjust (y:) x
         prune y     = M.adjust (L.delete y) var
         add x y     = M.adjust ((x,y):) var
+
+-- |Return a list of variables in the current assignment that are in conflict.
+conflictedVars :: CSP c v a => c v a -> Assignment v a -> [v]
+conflictedVars csp a =
+    [ v | v <- vars csp, numConflicts csp v (a ! v) a > 0 ]
 
 -- |Check if an assignment is complete, i.e. there are no more viables
 --  left to assign.
@@ -251,6 +257,61 @@ removeInconsistentValues csp x y = getDomain >>= \dom -> do
         then (modifyDomain $ M.insert x new) >> return True
         else return False
 
+---------------------------------------
+-- Min-Conflicts Hillclimbing Search --
+---------------------------------------
+
+-- |Solve a Constraint Satisfaction Problem by stochastic hillclimbing on the
+--  number of conflicts.
+minConflictsIO :: CSP c v a => c v a -> Int -> Opts -> IO (Assignment v a)
+minConflictsIO csp maxSteps opts = do
+    g <- getStdGen
+    return (evalBacktracking (minConflicts g csp maxSteps) (domains csp) opts)
+
+-- |Solve a Constraint Satisfaction Problem by stochastic hillclimbing on the
+--  number of conflicts. This is the /pure/ version of the algorithm. You must
+--  supply a random number generator. See also 'minConflictsIO'.
+minConflicts :: (CSP c v a, RandomGen g) =>
+                g
+             -> c v a
+             -> Int
+             -> Backtracking v a (Assignment v a)
+minConflicts gen csp maxSteps = initialAssignment gen csp >>= \g -> go g 0
+    where
+        go g steps = getAssignment >>= \current -> do
+            if steps == maxSteps
+                then return current
+                else do
+                    let conflicted = conflictedVars csp current
+                    if null conflicted
+                        then return current 
+                        else do
+                            let (var, g1) = randomChoice g conflicted
+                                (val, g2) = minConflictsValue g1 csp var current
+                            assign csp var val
+                            go g2 (1 + steps)
+
+-- |The initial assignment for the min-conflicts algorithm. We choose the
+--  assignments according to the minimum-conflicts heuristic, breaking ties
+--  at random.
+initialAssignment :: (CSP c v a, RandomGen g) => g -> c v a -> Backtracking v a g
+initialAssignment g csp = do
+    putAssignment M.empty
+    go g (vars csp)
+    where
+        go g []         = return g
+        go g (var:rest) = do
+            current <- getAssignment
+            let (val, g') = minConflictsValue g csp var current
+            assign csp var val
+            go g' rest
+
+-- |Return the value that will give a variable the least number of conflicts.
+--  If there is a tie, choose at random.
+minConflictsValue :: (CSP c v a, RandomGen g) => g -> c v a -> v -> Assignment v a -> (a, g)
+minConflictsValue g csp var current =
+    argMinRandom g (domains csp ! var) (\v -> numConflicts csp var v current)
+
 -----------------------
 -- Utility Functions --
 -----------------------
@@ -339,6 +400,10 @@ modifyPruned f = modify $ \(x,y,z) -> (x,f y,z)
 -- |Return the current assignment list in backtracking search.
 getAssignment :: MonadState (a,b,c) m => m c
 getAssignment = get >>= return . thd3
+
+-- |Store a new assignment in place of the old one.
+putAssignment :: MonadState (a,b,c) m => c -> m ()
+putAssignment a = get >>= \(x,y,z) -> put (x,y,a)
 
 -- |Modify the list of assignments in backtracking search.
 modifyAssignment :: MonadState (a,b,c) m => (c -> c) -> m ()
