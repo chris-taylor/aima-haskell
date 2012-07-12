@@ -118,7 +118,7 @@ depthFirstTreeSearch = treeSearch []
 
 -- |Search the shallowest nodes in the search tree first.
 breadthFirstTreeSearch :: (Problem p s a) => p s a -> Maybe (Node s a)
-breadthFirstTreeSearch = treeSearch (FifoQueue [])
+breadthFirstTreeSearch = treeSearch (newQueue :: FifoQueue (Node s a))
 
 -- |Search through the successors of a node to find a goal. The argument
 --  @fringe@ should be an empty queue. If two paths reach the same state, use
@@ -148,7 +148,7 @@ depthFirstGraphSearch = graphSearch []
 
 -- |Search the shallowest nodes in the graph first.
 breadthFirstGraphSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
-breadthFirstGraphSearch = graphSearch (FifoQueue [])
+breadthFirstGraphSearch = graphSearch (newQueue :: FifoQueue (Node s a))
 
 -- |Depth-first search with a depth limit. If the depth limit is reached we
 --  return 'Cutoff', otherwise return 'Fail' (if no solution is found) or 'Ok'
