@@ -25,7 +25,8 @@ Library
     Build-Depends:      base >= 2, containers, random, stm, deepseq, mtl, text
     Extensions:         MultiParamTypeClasses
     Hs-Source-Dirs:     src
-    Exposed-Modules:    AI.Search
+    Exposed-Modules:    AI.Agents
+                        AI.Search
                         AI.Games
                         AI.ConstraintSatisfaction
                         AI.MarkovDecisionProcess
