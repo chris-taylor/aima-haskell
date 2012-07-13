@@ -263,10 +263,10 @@ removeInconsistentValues csp x y = getDomain >>= \dom -> do
 
 -- |Solve a Constraint Satisfaction Problem by stochastic hillclimbing on the
 --  number of conflicts.
-minConflictsIO :: CSP c v a => c v a -> Int -> Opts -> IO (Assignment v a)
-minConflictsIO csp maxSteps opts = do
+minConflictsIO :: CSP c v a => c v a -> Int -> IO (Assignment v a)
+minConflictsIO csp maxSteps = do
     g <- getStdGen
-    return (evalBacktracking (minConflicts g csp maxSteps) (domains csp) opts)
+    return (minConflicts g csp maxSteps)
 
 -- |Solve a Constraint Satisfaction Problem by stochastic hillclimbing on the
 --  number of conflicts. This is the /pure/ version of the algorithm. You must
@@ -275,36 +275,30 @@ minConflicts :: (CSP c v a, RandomGen g) =>
                 g
              -> c v a
              -> Int
-             -> Backtracking v a (Assignment v a)
-minConflicts gen csp maxSteps = initialAssignment gen csp >>= \g -> go g 0
+             -> Assignment v a
+minConflicts gen csp maxSteps = go g 0 initial
     where
-        go g steps = getAssignment >>= \current -> do
-            if steps == maxSteps
-                then return current
-                else do
-                    let conflicted = conflictedVars csp current
-                    if null conflicted
-                        then return current 
-                        else do
-                            let (var, g1) = randomChoice g conflicted
-                                (val, g2) = minConflictsValue g1 csp var current
-                            assign csp var val
-                            go g2 (1 + steps)
+        (initial, g) = initialAssignment gen csp
+
+        go g steps current =
+            let conflicted = conflictedVars csp current
+             in if steps == maxSteps || null conflicted
+                    then current 
+                    else let (var, g1) = randomChoice g conflicted
+                             (val, g2) = minConflictsValue g1 csp var current
+                          in go g2 (steps+1) (M.insert var val current)
 
 -- |The initial assignment for the min-conflicts algorithm. We choose the
 --  assignments according to the minimum-conflicts heuristic, breaking ties
 --  at random.
-initialAssignment :: (CSP c v a, RandomGen g) => g -> c v a -> Backtracking v a g
-initialAssignment g csp = do
-    putAssignment M.empty
-    go g (vars csp)
+initialAssignment :: (CSP c v a, RandomGen g) => g -> c v a -> (Assignment v a, g)
+initialAssignment g csp = go g (vars csp) M.empty
     where
-        go g []         = return g
-        go g (var:rest) = do
-            current <- getAssignment
+        go g []         current = (current, g)
+        go g (var:rest) current = 
             let (val, g') = minConflictsValue g csp var current
-            assign csp var val
-            go g' rest
+             in go g' rest (M.insert var val current)
+            
 
 -- |Return the value that will give a variable the least number of conflicts.
 --  If there is a tie, choose at random.
