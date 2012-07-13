@@ -35,9 +35,8 @@
 
 ## Constraint Satisfaction
 
-- Local search - minimum conflicts.
 - Wrapper for CSP class to allow statistics to be collected.
-- Examples - sudoku, word puzzles, scheduling?
+- Examples - word puzzles, scheduling?
 
 ## Probability
 
