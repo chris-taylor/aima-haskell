@@ -31,11 +31,11 @@ instance Show Expr where
     show (Val True)    = "T"
     show (Val False)   = "F"
     show (Var p)       = p
-    show (Not p)       = "~" ++ show p
+    show (Not p)       = "¬" ++ show p
     show (And ps)      = "(" ++ (concat $ L.intersperse " & " $ map show ps) ++ ")"
     show (Or ps)       = "(" ++ (concat $ L.intersperse " | " $ map show ps) ++ ")"
-    show (Implies p q) = "(" ++ show p ++ " => " ++ show q ++ ")"
-    show (Equiv p q)   = "(" ++ show p ++ " <=> " ++ show q ++ ")"
+    show (Implies p q) = "(" ++ show p ++ " ⇒ " ++ show q ++ ")"
+    show (Equiv p q)   = "(" ++ show p ++ " ⇔ " ++ show q ++ ")"
     --show (Xor p q)     = "(" ++ show p ++ " ^ " ++ show q ++ ")"
 
 -- |Convert a propositional logical sentence to conjunctive normal form.
@@ -58,7 +58,8 @@ eliminateImpl (And ps) = And (map eliminateImpl ps)
 eliminateImpl (Or ps)  = Or  (map eliminateImpl ps)
 eliminateImpl other    = other
 
--- |Rewrite a sentence by moving the negation operator inward.
+-- |Given a sentence which is a sequence of conjunctions, disjunctions and
+--  negations, rewrite a sentence by moving all the negation operators inward.
 moveNotInward :: Expr -> Expr
 moveNotInward (Not s)  = case s of
     And ps -> Or  $ map (moveNotInward . Not) ps
@@ -69,14 +70,16 @@ moveNotInward (And ps) = And $ map moveNotInward ps
 moveNotInward (Or  ps) = Or  $ map moveNotInward ps
 moveNotInward expr     = expr
 
+-- |Given a sequence of conjunctions and disjunctions, put it into conjunctive
+--  normal form by distributing all of the disjunctions across the conjunctions.
 distributeAndOverOr :: Expr -> Expr
-distributeAndOverOr (Or ps) = foldr1 distribute ps
+distributeAndOverOr (Or ps) = foldr1 distribute (map distributeAndOverOr ps)
     where
-        distribute (And xs) p = And (map (addOr p) xs)
-        distribute p (And xs) = And (map (addOr p) xs)
+        distribute (And xs) p = And $ map distributeAndOverOr [ Or [x,p] | x <- xs ]
+        distribute p (And xs) = And $ map distributeAndOverOr [ Or [p,x] | x <- xs ]
+        distribute (Or xs) p  = Or (xs ++ [p])
+        distribute p (Or xs)  = Or (p:xs)
         distribute p q        = Or [p,q]
-
-        addOr y x = Or [y,x]
 distributeAndOverOr (And ps) = And (map distributeAndOverOr ps)
 distributeAndOverOr (Not p)  = Not (distributeAndOverOr p)
 distributeAndOverOr expr     = expr
