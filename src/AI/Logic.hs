@@ -1,5 +1,7 @@
 module AI.Logic where
 
+import Control.Applicative ((<$>))
+
 import qualified Data.List as L
 
 -- |A knowledge base to which you can tell and ask sentences. To create a KB,
@@ -24,8 +26,6 @@ data Expr = Val Bool
           | Or [Expr]
           | Implies Expr Expr
           | Equiv Expr Expr
---          | Xor Expr Expr
-
 
 instance Show Expr where
     show (Val True)    = "T"
@@ -36,7 +36,69 @@ instance Show Expr where
     show (Or ps)       = "(" ++ (concat $ L.intersperse " | " $ map show ps) ++ ")"
     show (Implies p q) = "(" ++ show p ++ " ⇒ " ++ show q ++ ")"
     show (Equiv p q)   = "(" ++ show p ++ " ⇔ " ++ show q ++ ")"
-    --show (Xor p q)     = "(" ++ show p ++ " ^ " ++ show q ++ ")"
+
+-- |Return a list of all the variable names in a logical expression.
+vars :: Expr -> [String]
+vars = L.nub . findVars
+    where
+        findVars (Val _) = []
+        findVars (Var x) = [x]
+        findVars (Not p) = findVars p
+        findVars (And ps) = concatMap findVars ps
+        findVars (Or ps) = concatMap findVars ps
+        findVars (Implies p q) = findVars p ++ findVars q
+        findVars (Equiv p q) = findVars p ++ findVars q
+
+implies :: Bool -> Bool -> Bool
+implies p q = not p || q
+
+equiv :: Bool -> Bool -> Bool
+equiv p q = implies p q && implies q p
+
+xor :: Bool -> Bool -> Bool
+xor p q = (p && not q) || (q && not p)
+
+allBoolCombinations :: Int -> [[Bool]]
+allBoolCombinations 0 = [[]]
+allBoolCombinations n = do
+    x  <- [True, False]
+    xs <- allBoolCombinations (n-1)
+    return (x:xs)
+
+allDomains :: [String] -> [ [(String,Bool)] ]
+allDomains vars = map (zip vars) (allBoolCombinations (length vars))
+
+evaluate :: [(String,Bool)] -> Expr -> Maybe Bool
+evaluate env (Val b)  = Just b
+evaluate env (Var p)  = lookup p env
+evaluate env (Not p)  = not <$> (evaluate env p)
+evaluate env (And ps) = and <$> (mapM (evaluate env) ps)
+evaluate env (Or ps)  = or  <$> (mapM (evaluate env) ps)
+evaluate env (Implies p q) = do
+    x <- evaluate env p
+    y <- evaluate env q
+    return (implies x y)
+evaluate env (Equiv p q) = do
+    x <- evaluate env p
+    y <- evaluate env q
+    return (equiv x y)
+
+evaluateInAllModels :: Expr -> [Bool]
+evaluateInAllModels expr = map eval $ allDomains (vars expr)
+    where
+        eval env = case evaluate env expr of
+            Nothing -> error "Should never see this."
+            Just v  -> v
+
+isTautology :: Expr -> Bool
+isTautology expr = and $ evaluateInAllModels expr
+
+isContradiction :: Expr -> Bool
+isContradiction expr = and $ map not $ evaluateInAllModels expr
+
+-----------------------------
+-- Conjunctive Normal Form --
+-----------------------------
 
 -- |Convert a propositional logical sentence to conjunctive normal form.
 toCnf :: Expr -> Expr
@@ -50,9 +112,6 @@ eliminateImpl (p `Implies` q) = Or [Not p', q']
 eliminateImpl (p `Equiv` q) = And [ Or [Not p', q'], Or [Not q', p'] ]
     where p' = eliminateImpl p
           q' = eliminateImpl q
---eliminateImpl (p `Xor` q) = Or [ And [p', Not q'], And [q', Not p'] ]
---    where p' = eliminateImpl p
---          q' = eliminateImpl q
 eliminateImpl (Not p)  = Not (eliminateImpl p)
 eliminateImpl (And ps) = And (map eliminateImpl ps)
 eliminateImpl (Or ps)  = Or  (map eliminateImpl ps)
