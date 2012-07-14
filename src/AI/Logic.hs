@@ -1,8 +1,11 @@
 module AI.Logic where
 
 import Control.Applicative ((<$>))
+import Control.Monad.State
 
 import qualified Data.List as L
+
+import AI.Util.Util
 
 -- |A knowledge base to which you can tell and ask sentences. To create a KB,
 --  create instances of this class and implement ask, tell and retract.
@@ -26,6 +29,7 @@ data Expr = Val Bool
           | Or [Expr]
           | Implies Expr Expr
           | Equiv Expr Expr
+          deriving (Eq)
 
 instance Show Expr where
     show (Val True)    = "T"
@@ -114,7 +118,7 @@ plTrue model (Equiv p q) = do
 
 -- |Convert a propositional logical sentence to conjunctive normal form.
 toCnf :: Expr -> Expr
-toCnf = distributeAndOverOr . moveNotInward . eliminateImpl
+toCnf = associate . distributeAndOverOr . moveNotInward . eliminateImpl
 
 -- |Convert implication and equality into and, or and not.
 eliminateImpl :: Expr -> Expr
@@ -154,6 +158,72 @@ distributeAndOverOr (Or ps) = foldr1 distribute (map distributeAndOverOr ps)
 distributeAndOverOr (And ps) = And (map distributeAndOverOr ps)
 distributeAndOverOr (Not p)  = Not (distributeAndOverOr p)
 distributeAndOverOr expr     = expr
+
+----------------
+-- Resolution --
+----------------
+
+-- |Return a list of all conjuncts in a logical expression.
+conjuncts :: Expr -> [Expr]
+conjuncts (And xs) = xs
+conjuncts other    = [other]
+
+-- |Return a list of all disjuncts in a logical expression.
+disjuncts :: Expr -> [Expr]
+disjuncts (Or xs) = xs
+disjuncts other   = [other]
+
+-- |Return 'True' if an expression is an atom (i.e. if it is top, bottom, or a
+--  symbol).
+isAtom :: Expr -> Bool
+isAtom (Val _) = True
+isAtom (Var _) = True
+isAtom _       = False
+
+-- |Return 'True' if s and t are complementary literals.
+complementary :: Expr -> Expr -> Bool
+complementary (Not p) q = isAtom p && isAtom q && p == q
+complementary p (Not q) = isAtom p && isAtom q && p == q
+complementary _ _       = False
+
+-- |A resolution algorithm for propositional logic.
+plResolution :: Expr -> Expr -> Bool
+plResolution p q = evalState go (clauses, [])
+    where
+        clauses = conjuncts $ toCnf $ And [p, Not q]
+
+        go = get >>= \(clauses, new) -> do
+            results <- mapM resolve (unorderedPairs clauses)
+            if or results
+                then return True
+                else get >>= \(clauses,new) -> if new `isSubSet` clauses
+                    then return False
+                    else do
+                        modify $ \(cs,new) -> (L.union cs new, new)
+                        go
+            where
+                resolve (c1,c2) = do
+                    let resolvents = plResolve c1 c2
+                    if false `elem` resolvents
+                        then return True
+                        else do
+                            modify $ \(cs,new) -> (cs, L.union new resolvents)
+                            return False
+
+-- |Return the set of all possible clauses obtained by resolving the two inputs.
+plResolve :: Expr -> Expr -> [Expr]
+plResolve p q =
+    [ mkExpr x y | x <- ps, y <- qs, complementary x y ]
+    where
+        ps = disjuncts p
+        qs = disjuncts q
+
+        mkExpr x y = case L.union (L.delete x ps) (L.delete y qs) of
+            [ ] -> Val False
+            [x] -> x
+            xs  -> Or xs
+
+
 
 -----------
 -- Utils --

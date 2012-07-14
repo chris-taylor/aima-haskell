@@ -79,6 +79,20 @@ deleteAll :: Eq a => [a] -> [a] -> [a]
 deleteAll xs []     = []
 deleteAll xs (y:ys) = if y `elem` xs then deleteAll xs ys else y : deleteAll xs ys
 
+-- |Return a list of all (ordered) pairs of elements of a list.
+orderedPairs :: [a] -> [(a,a)]
+orderedPairs xs = [ (x,y) | x <- xs, y <- xs ]
+
+-- |Return a list of all (unordered) pairs of elements from a list.
+unorderedPairs :: [a] -> [(a,a)]
+unorderedPairs []     = []
+unorderedPairs (x:xs) = [ (x,y) | y <- xs ] ++ unorderedPairs xs
+
+-- |Return 'True' if the first set is a subset of the second, i.e. if every
+--  element of the first set is also an element of the second set.
+isSubSet :: Eq a => [a] -> [a] -> Bool
+xs `isSubSet` ys = all (`elem` ys) xs
+
 -- |Given a list x :: [a], return a new list y :: [(Int,a)] which pairs every
 --  element of the list with its position.
 enumerate :: [a] -> [(Int,a)]
