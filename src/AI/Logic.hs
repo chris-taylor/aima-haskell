@@ -32,10 +32,18 @@ instance Show Expr where
     show (Val False)   = "F"
     show (Var p)       = p
     show (Not p)       = "¬" ++ show p
-    show (And ps)      = "(" ++ (concat $ L.intersperse " & " $ map show ps) ++ ")"
-    show (Or ps)       = "(" ++ (concat $ L.intersperse " | " $ map show ps) ++ ")"
+    show (And ps)      = "(" ++ (concat $ L.intersperse " ∧ " $ map show ps) ++ ")"
+    show (Or ps)       = "(" ++ (concat $ L.intersperse " ∨ " $ map show ps) ++ ")"
     show (Implies p q) = "(" ++ show p ++ " ⇒ " ++ show q ++ ")"
     show (Equiv p q)   = "(" ++ show p ++ " ⇔ " ++ show q ++ ")"
+
+-- |The expression that is always true.
+true :: Expr
+true = Val True
+
+-- |The expression that is always false.
+false :: Expr
+false = Val False
 
 -- |Return a list of all the variable names in a logical expression.
 vars :: Expr -> [String]
@@ -49,52 +57,56 @@ vars = L.nub . findVars
         findVars (Implies p q) = findVars p ++ findVars q
         findVars (Equiv p q) = findVars p ++ findVars q
 
-implies :: Bool -> Bool -> Bool
-implies p q = not p || q
+-- |Does the first logical expression entail the second? This algorithm uses
+--  truth tables.
+ttEntails :: Expr -> Expr -> Bool
+ttEntails s t = and $ ttCheck (s `Implies` t)
 
-equiv :: Bool -> Bool -> Bool
-equiv p q = implies p q && implies q p
-
-xor :: Bool -> Bool -> Bool
-xor p q = (p && not q) || (q && not p)
-
-allBoolCombinations :: Int -> [[Bool]]
-allBoolCombinations 0 = [[]]
-allBoolCombinations n = do
-    x  <- [True, False]
-    xs <- allBoolCombinations (n-1)
-    return (x:xs)
-
-allDomains :: [String] -> [ [(String,Bool)] ]
-allDomains vars = map (zip vars) (allBoolCombinations (length vars))
-
-evaluate :: [(String,Bool)] -> Expr -> Maybe Bool
-evaluate env (Val b)  = Just b
-evaluate env (Var p)  = lookup p env
-evaluate env (Not p)  = not <$> (evaluate env p)
-evaluate env (And ps) = and <$> (mapM (evaluate env) ps)
-evaluate env (Or ps)  = or  <$> (mapM (evaluate env) ps)
-evaluate env (Implies p q) = do
-    x <- evaluate env p
-    y <- evaluate env q
-    return (implies x y)
-evaluate env (Equiv p q) = do
-    x <- evaluate env p
-    y <- evaluate env q
-    return (equiv x y)
-
-evaluateInAllModels :: Expr -> [Bool]
-evaluateInAllModels expr = map eval $ allDomains (vars expr)
-    where
-        eval env = case evaluate env expr of
+-- |Helper function for ttEntails. Evaluates the expression in all possible
+--  models.
+ttCheck :: Expr -> [Bool]
+ttCheck expr = map check $ allModels (vars expr)
+    where   
+        check model = case plTrue model expr of
             Nothing -> error "Should never see this."
             Just v  -> v
 
-isTautology :: Expr -> Bool
-isTautology expr = and $ evaluateInAllModels expr
+        allModels vars = map (zip vars) (enumerateBool (length vars))
 
-isContradiction :: Expr -> Bool
-isContradiction expr = and $ map not $ evaluateInAllModels expr
+        enumerateBool 0 = [[]]
+        enumerateBool n = do
+            x  <- [True, False]
+            xs <- enumerateBool (n-1)
+            return (x:xs)
+
+-- |Is the propositional sentence a tautology - is it true in all possible
+--  models (i.e. is it entailed by true?)
+ttTrue :: Expr -> Bool
+ttTrue s = true `ttEntails` s
+
+-- |Is the propositional sentence a contradiction - is it false in all
+--  possible models (i.e. does it entail false?)
+ttFalse :: Expr -> Bool
+ttFalse s = s `ttEntails` false
+
+-- |Return 'True' if the propositional logic expression is true in the model,
+--  and 'False' if it is false. If the model does not specify the value for
+--  every proposition then return 'Nothing' (note that this may happen even
+--  when the expression is tautological).
+plTrue :: [(String,Bool)] -> Expr -> Maybe Bool
+plTrue model (Val b)  = Just b
+plTrue model (Var p)  = lookup p model
+plTrue model (Not p)  = not <$> (plTrue model p)
+plTrue model (And ps) = and <$> (mapM (plTrue model) ps)
+plTrue model (Or ps)  = or  <$> (mapM (plTrue model) ps)
+plTrue model (Implies p q) = do
+    x <- plTrue model p
+    y <- plTrue model q
+    return (not x || y)
+plTrue model (Equiv p q) = do
+    x <- plTrue model p
+    y <- plTrue model q
+    return (x == y)
 
 -----------------------------
 -- Conjunctive Normal Form --
