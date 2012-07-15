@@ -49,6 +49,23 @@ true = Val True
 false :: Expr
 false = Val False
 
+-- |Return 'True' if an expression is an atom (i.e. if it is top, bottom, or a
+--  symbol).
+isAtom :: Expr -> Bool
+isAtom (Val _) = True
+isAtom (Var _) = True
+isAtom _       = False
+
+-- |Return a list of all conjuncts in a logical expression.
+conjuncts :: Expr -> [Expr]
+conjuncts (And xs) = xs
+conjuncts other    = [other]
+
+-- |Return a list of all disjuncts in a logical expression.
+disjuncts :: Expr -> [Expr]
+disjuncts (Or xs) = xs
+disjuncts other   = [other]
+
 -- |Return a list of all the variable names in a logical expression.
 vars :: Expr -> [String]
 vars = L.nub . findVars
@@ -61,8 +78,12 @@ vars = L.nub . findVars
         findVars (Implies p q) = findVars p ++ findVars q
         findVars (Equiv p q) = findVars p ++ findVars q
 
+----------------------------
+-- Truth Table Entailment --
+----------------------------
+
 -- |Does the first logical expression entail the second? This algorithm uses
---  truth tables.
+--  truth tables (Fig 7.10).
 ttEntails :: Expr -> Expr -> Bool
 ttEntails s t = and $ ttCheck (s `Implies` t)
 
@@ -163,67 +184,57 @@ distributeAndOverOr expr     = expr
 -- Resolution --
 ----------------
 
--- |Return a list of all conjuncts in a logical expression.
-conjuncts :: Expr -> [Expr]
-conjuncts (And xs) = xs
-conjuncts other    = [other]
-
--- |Return a list of all disjuncts in a logical expression.
-disjuncts :: Expr -> [Expr]
-disjuncts (Or xs) = xs
-disjuncts other   = [other]
-
--- |Return 'True' if an expression is an atom (i.e. if it is top, bottom, or a
---  symbol).
-isAtom :: Expr -> Bool
-isAtom (Val _) = True
-isAtom (Var _) = True
-isAtom _       = False
-
 -- |Return 'True' if s and t are complementary literals.
 complementary :: Expr -> Expr -> Bool
 complementary (Not p) q = isAtom p && isAtom q && p == q
 complementary p (Not q) = isAtom p && isAtom q && p == q
 complementary _ _       = False
 
--- |A resolution algorithm for propositional logic.
-plResolution :: Expr -> Expr -> Bool
-plResolution p q = evalState go (clauses, [])
+-- |Return 'True' if a disjunction of literals can be demonstrated to be a
+--  tautology without need of evaluation - this is the case if it contains two
+--  complementary literals.
+isTautology :: Expr -> Bool
+isTautology expr = or $ map (uncurry complementary) clausePairs
     where
-        clauses = conjuncts $ toCnf $ And [p, Not q]
+        clausePairs = unorderedPairs (disjuncts expr)
 
-        go = get >>= \(clauses, new) -> do
-            results <- mapM resolve (unorderedPairs clauses)
-            if or results
-                then return True
-                else get >>= \(clauses,new) -> if new `isSubSet` clauses
-                    then return False
-                    else do
-                        modify $ \(cs,new) -> (L.union cs new, new)
-                        go
+-- |A resolution algorithm for propositional logic. It performs a mechanical
+--  form of proof by contradiction. It first builds the set of clauses of the
+--  /negation/ of the statement to be demonstrated, and then resolves every
+--  pair of clauses. If a contradiction is generated, then the algorithm returns
+--  'True', otherwise it continues. If at any stage, no new clauses can be
+--  generated, then the algorithm returns 'False'.
+plResolution :: Expr -> Expr -> Bool
+plResolution s t = go $ conjuncts $ toCnf $ And [s, Not t]
+    where
+        go clauses = if contradictionDerived
+            then True
+            else if new `isSubSet` clauses
+                then False
+                else go (L.union clauses new)
+
             where
-                resolve (c1,c2) = do
-                    let resolvents = plResolve c1 c2
-                    if false `elem` resolvents
-                        then return True
-                        else do
-                            modify $ \(cs,new) -> (cs, L.union new resolvents)
-                            return False
+                (contradictionDerived, new) =
+                    foldr resolve (False, []) (unorderedPairs clauses)
+
+        resolve (_,_) (True, new)  = (True, new)
+        resolve (x,y) (False, new) = if false `elem` resolvents
+            then (True, new)
+            else (False, L.union new resolvents)
+            where
+                resolvents = plResolve x y
 
 -- |Return the set of all possible clauses obtained by resolving the two inputs.
 plResolve :: Expr -> Expr -> [Expr]
 plResolve p q =
-    [ mkExpr x y | x <- ps, y <- qs, complementary x y ]
+    filter (not . isTautology) [resolve x y | x <- ps, y <- qs, complementary x y]
     where
         ps = disjuncts p
         qs = disjuncts q
-
-        mkExpr x y = case L.union (L.delete x ps) (L.delete y qs) of
-            [ ] -> Val False
-            [x] -> x
-            xs  -> Or xs
-
-
+        
+        resolve x y = case L.union (L.delete x ps) (L.delete y qs) of
+            [] -> Val False
+            xs -> Or xs
 
 -----------
 -- Utils --
