@@ -30,6 +30,7 @@ Library
                         AI.Search.Adversarial
                         AI.Search.CSP
                         AI.Logic.Propositional
+                        AI.Logic.FOL
                         AI.Probability.MDP
                         AI.Example.Search
                         AI.Example.Games
