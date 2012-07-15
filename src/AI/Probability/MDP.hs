@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module AI.MarkovDecisionProcess where
+module AI.Probability.MDP where
 
 import Data.Map (Map, (!))
 import GHC.Float

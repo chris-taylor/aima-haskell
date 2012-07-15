@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
-module AI.Search where
+module AI.Search.Search where
 
 import Data.Set (Set)
 import qualified Data.Set as S

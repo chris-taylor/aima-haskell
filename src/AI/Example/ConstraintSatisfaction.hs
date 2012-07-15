@@ -10,7 +10,7 @@ import qualified Data.List as L
 
 import AI.Util.Graph (Graph)
 import AI.Util.Util
-import AI.ConstraintSatisfaction
+import AI.Search.CSP
 
 import qualified AI.Util.Graph as G
 

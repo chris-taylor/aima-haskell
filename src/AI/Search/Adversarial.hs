@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, TypeFamilies #-}
 
-module AI.Games where
+module AI.Search.Adversarial where
 
 import Control.DeepSeq
 import Control.Monad

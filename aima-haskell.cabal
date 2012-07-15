@@ -25,12 +25,12 @@ Library
     Build-Depends:      base >= 2, containers, random, stm, deepseq, mtl, text
     Extensions:         MultiParamTypeClasses
     Hs-Source-Dirs:     src
-    Exposed-Modules:    AI.Agents
-                        AI.Search
-                        AI.Games
-                        AI.ConstraintSatisfaction
-                        AI.Logic
-                        AI.MarkovDecisionProcess
+    Exposed-Modules:    AI.Core.Agents
+                        AI.Search.Search
+                        AI.Search.Adversarial
+                        AI.Search.CSP
+                        AI.Logic.Propositional
+                        AI.Probability.MDP
                         AI.Example.Search
                         AI.Example.Games
                         AI.Example.ConstraintSatisfaction
@@ -40,9 +40,3 @@ Library
                         AI.Util.Queue
                         AI.Util.Table
                         AI.Util.Util
-
--- Executable          haski
---     Build-Depends:  haskeme, base, parsec, mtl, haskell98, containers, array, random, directory
---     Extensions:     ExistentialQuantification
---     Main-is:        Main.hs
---     Hs-Source-Dirs: src/Interpreter

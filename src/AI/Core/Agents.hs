@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
 
-module AI.Agents where
+module AI.Core.Agents where
 
 import System.IO.Unsafe
 

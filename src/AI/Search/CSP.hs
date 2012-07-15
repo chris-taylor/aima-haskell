@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, TypeSynonymInstances, FlexibleInstances #-}
 
-module AI.ConstraintSatisfaction where
+module AI.Search.CSP where
 
 import Control.Monad.Reader
 import Control.Monad.State

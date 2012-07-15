@@ -11,7 +11,7 @@ import qualified Data.Map as M
 import qualified Data.Ord as O
 import qualified System.Random as R
 
-import AI.Games
+import AI.Search.Adversarial
 import AI.Util.Util
 
 ----------------------------

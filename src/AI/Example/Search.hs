@@ -16,7 +16,7 @@ import qualified Data.Map as M
 import qualified Data.Ord as O
 import qualified System.Random as R
 
-import AI.Search
+import AI.Search.Search
 import AI.Util.WeightedGraph (WeightedGraph)
 import AI.Util.Table
 import AI.Util.Util

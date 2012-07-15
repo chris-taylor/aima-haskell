@@ -1,4 +1,4 @@
-module AI.Logic where
+module AI.Logic.Propositional where
 
 import Control.Applicative ((<$>))
 import Control.Monad.State
@@ -258,7 +258,7 @@ plResolve p q =
 --  it is a symbol, or the negation of a symbol.
 isLiteral :: Expr -> Bool
 isLiteral (Not p) = isAtom p
-isLiteral p       = isAtom p]
+isLiteral p       = isAtom p
 
 -- |Return 'True' if a literal expression in propositional logic is positive,
 --  i.e. it is not a negation.
