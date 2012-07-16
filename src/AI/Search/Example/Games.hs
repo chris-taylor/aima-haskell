@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 
-module AI.Example.Games where
+module AI.Search.Example.Games where
 
 import Control.Exception
 import Data.Map (Map, (!))

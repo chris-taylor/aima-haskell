@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 
-module AI.Example.ConstraintSatisfaction where
+module AI.Search.Example.ConstraintSatisfaction where
 
 import Data.Map (Map, (!))
 

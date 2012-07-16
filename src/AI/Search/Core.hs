@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
-module AI.Search.Search where
+module AI.Search.Core where
 
 import Data.Set (Set)
 import qualified Data.Set as S
@@ -92,9 +92,9 @@ expand p node = [ mkNode a s | (a,s) <- successor p (state node) ]
         c      a s = costP p (cost node) (state node) a s
         v          = valueP p (state node)
 
-----------------------------------
--- Uninformed Search Algorithms --
-----------------------------------
+----------------------------
+-- Core Search Algorithms --
+----------------------------
 
 -- |Search through the successors of a node to find a goal. The argument
 --  @fringe@ should be an empty queue. We don't worry about repeated paths
@@ -111,14 +111,6 @@ treeSearch q prob = go prob (root prob `push` q)
                  in if goalTest p (state node)
                     then Just node
                     else go p (expand prob node `extend` rest)
-
--- |Search the deepest nodes in the search tree first.
-depthFirstTreeSearch :: (Problem p s a) => p s a -> Maybe (Node s a)
-depthFirstTreeSearch = treeSearch []
-
--- |Search the shallowest nodes in the search tree first.
-breadthFirstTreeSearch :: (Problem p s a) => p s a -> Maybe (Node s a)
-breadthFirstTreeSearch = treeSearch (newQueue :: FifoQueue (Node s a))
 
 -- |Search through the successors of a node to find a goal. The argument
 --  @fringe@ should be an empty queue. If two paths reach the same state, use
@@ -141,92 +133,6 @@ graphSearch q prob = go prob (root prob `push` q) S.empty
                 thisState   = state node
                 rest'       = expand prob node `extend` rest
                 closed'     = thisState `S.insert` closed
-
--- |Search the deepest nodes in the graph first.
-depthFirstGraphSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
-depthFirstGraphSearch = graphSearch []
-
--- |Search the shallowest nodes in the graph first.
-breadthFirstGraphSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
-breadthFirstGraphSearch = graphSearch (newQueue :: FifoQueue (Node s a))
-
--- |Depth-first search with a depth limit. If the depth limit is reached we
---  return 'Cutoff', otherwise return 'Fail' (if no solution is found) or 'Ok'
---  (if a solution is found) which take the place of Nothing and Just in the
---  other search functions.
-depthLimitedSearch :: (Problem p s a) =>
-                      Int       -- ^ Depth limit
-                   -> p s a     -- ^ Problem
-                   -> DepthLimited (Node s a)
-depthLimitedSearch lim prob = recursiveDLS (root prob) prob lim
-    where
-        recursiveDLS node p lim
-            | goalTest p (state node) = Ok node
-            | depth node == lim       = Cutoff
-            | otherwise               = filt False $ map go (expand prob node)
-            where
-                go node = recursiveDLS node p lim
-
-                filt cutoff [] = if cutoff then Cutoff else Fail
-                filt cutoff (Ok node : _)    = Ok node
-                filt cutoff (Fail    : rest) = filt cutoff rest
-                filt cutoff (Cutoff  : rest) = filt True   rest
-
-data DepthLimited a = Fail | Cutoff | Ok a deriving (Show)
-
--- |Repeatedly try depth-limited search with an increasing depth limit.
-iterativeDeepeningSearch :: (Problem p s a) => p s a -> Maybe (Node s a)
-iterativeDeepeningSearch prob = go 1
-    where
-        go lim = case depthLimitedSearch lim prob of
-            Cutoff -> go (lim + 1)
-            Fail   -> Nothing
-            Ok n   -> Just n
-
----------------------------------
--- Informed (Heuristic) Search --
----------------------------------
-
--- |Best-first tree search takes a function that scores each potential successor
---  and prefers to explore nodes with the lowest score first.
-bestFirstTreeSearch :: (Problem p s a) =>
-                       (Node s a -> Double) -- ^ Function to score each node
-                    -> p s a                -- ^ Problem
-                    -> Maybe (Node s a)
-bestFirstTreeSearch f = treeSearch (PQueue [] f)
-
--- |Best-first graph search keeps track of states that have already been visited
---  and won't visit the same state twice.
-bestFirstGraphSearch :: (Problem p s a, Ord s) =>
-                        (Node s a -> Double)    -- ^ Function to score each node
-                     -> p s a                   -- ^ Problem
-                     -> Maybe (Node s a)
-bestFirstGraphSearch f = graphSearch (PQueue [] f)
-
--- |Minimum cost search preferentially explores nodes with the lowest cost
---  accrued, to guarantee that it finds the best path to the solution.
-uniformCostSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
-uniformCostSearch prob = bestFirstGraphSearch cost prob
-
--- |Greedy best-first search preferentially explores nodes with the lowest
---  cost remaining to the goal, ignoring cost already accrued.
-greedyBestFirstSearch :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
-greedyBestFirstSearch prob = bestFirstGraphSearch (heuristic prob) prob
-
--- |A* search takes a heuristic function that estimates how close each state is
---  to the goal. It combines this with the path cost so far to get a total
---  score, and preferentially explores nodes with a lower score. It is optimal
---  whenever the heuristic function is 
-aStarSearch :: (Problem p s a, Ord s) =>
-               (Node s a -> Double)         -- ^ Heuristic function
-            -> p s a                        -- ^ Problem
-            -> Maybe (Node s a)
-aStarSearch h = bestFirstGraphSearch (\n -> h n + cost n)
-
--- |A variant on A* search that uses the heuristic function defined by the
---  problem.
-aStarSearch' :: (Problem p s a, Ord s) => p s a -> Maybe (Node s a)
-aStarSearch' prob = aStarSearch (heuristic prob) prob
 
 -----------------------------
 -- Local Search Algorithms --

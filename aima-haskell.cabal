@@ -26,15 +26,18 @@ Library
     Extensions:         MultiParamTypeClasses
     Hs-Source-Dirs:     src
     Exposed-Modules:    AI.Core.Agents
-                        AI.Search.Search
+                        AI.Search.Core
+                        AI.Search.Uninformed
+                        AI.Search.Informed
                         AI.Search.Adversarial
                         AI.Search.CSP
+                        AI.Search.Example.Graph
+                        AI.Search.Example.NQueens
+                        AI.Search.Example.ConstraintSatisfaction
+                        AI.Search.Example.Games
                         AI.Logic.Propositional
                         AI.Logic.FOL
                         AI.Probability.MDP
-                        AI.Example.Search
-                        AI.Example.Games
-                        AI.Example.ConstraintSatisfaction
                         AI.Util.Graph
                         AI.Util.WeightedGraph
                         AI.Util.ProbDist
