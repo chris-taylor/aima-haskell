@@ -13,15 +13,6 @@ import System.CPUTime
 import System.Random
 import System.Timeout
 
------------------
--- Combinators --
------------------
-
--- |The @|>@ combinator is left-to-right function composition with low
---  precedence. It is equivalent to @(|>) = flip ($)@.
-(|>) :: a -> (a -> b) -> b
-x |> f = f x 
-
 -----------------------
 -- Numeric Functions --
 -----------------------
@@ -190,16 +181,15 @@ randomChoice g xs = (xs !! n, next)
 randomChoiceIO :: [a] -> IO a
 randomChoiceIO xs = getStdGen >>= \g -> return $ fst $ randomChoice g xs
 
---randomChoiceIO [] = error "Empty list -- RANDOMCHOICEIO"
---randomChoiceIO xs = do
---    n <- R.randomRIO (0,length xs - 1)
---    return (xs !! n)
+-- |Given a random number generator, return 'True' with probability p.
+probability :: (RandomGen g, Random a, Ord a, Num a) => g -> a -> (Bool, g)
+probability g p = if p' < p then (True, g') else (False, g')
+    where
+        (p', g') = R.randomR (0,1) g
 
 -- |Return @True@ with probability p.
 probabilityIO :: (R.Random a, Ord a, Num a) => a -> IO Bool
-probabilityIO p = do
-    p' <- R.randomRIO (0,1)
-    return (if p' < p then True else False)
+probabilityIO p = getStdGen >>= \g -> return $ fst $ probability g p
 
 --------------------
 -- IO Combinators -- 
