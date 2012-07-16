@@ -39,6 +39,7 @@ Library
                         AI.Search.Example.Connect4
                         AI.Search.Example.MapColoring
                         AI.Search.Example.Sudoku
+                        AI.Logic.Main
                         AI.Logic.Parser
                         AI.Logic.Propositional
                         AI.Logic.FOL

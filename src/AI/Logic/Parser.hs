@@ -1,6 +1,5 @@
-module AI.Logic.Parser where
+module AI.Logic.Parser (parseExpr) where
 
---import Text.Parsec.Expr ((<?>), (<|>))
 import Text.ParserCombinators.Parsec
 import Text.Parsec.Char
 import Text.Parsec.Expr
@@ -8,6 +7,17 @@ import Text.Parsec.Token hiding (parens)
 
 import AI.Logic.Propositional
 
+--------------------------------
+-- Propositional Logic Parser --
+--------------------------------
+
+-- |Parse a 'String' as an expression in propositional logic.
+parseExpr :: String -> Maybe Expr
+parseExpr input = case parse expr "" input of
+    Left _  -> Nothing
+    Right x -> return x
+
+expr :: Parser Expr
 expr = buildExpressionParser table term <?> "expression"
 
 parseVal :: Parser Expr
@@ -21,24 +31,18 @@ parseVar = do
     cs <- many alphaNum
     return $ Var (c:cs)
 
+term :: Parser Expr
+term = parens expr
+   <|> parseVal
+   <|> parseVar
+   <?> "T, F or proposition name"
+
 parens :: Parser a -> Parser a
 parens p = do
     char '(' >> spaces
     x <- p
     spaces >> char ')'
     return x
-
-run :: Parser Expr -> String -> IO (Maybe Expr)
-run p input = case (parse p "" input) of
-    Left err -> do
-        putStr "parse error at "
-        print err >> return Nothing
-    Right x  -> print x >> return (Just x)
-
-term = parens expr
-   <|> parseVal
-   <|> parseVar
-   <?> "T, F or proposition name"
 
 table = 
     [ [prefix "~" Not]
