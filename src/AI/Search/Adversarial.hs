@@ -71,8 +71,8 @@ type GamePlayer g s a = g s a -> s -> a
 
 -- |Given a state in a game, calculate the best move by searching forward all
 --  the way to the terminal states.
-minimaxDecision :: (Game g s a) => GamePlayer g s a
-minimaxDecision game state = a
+minimaxSearch :: (Game g s a) => GamePlayer g s a
+minimaxSearch game state = a
     where
         player = toMove game state
         succs  = successors game state
@@ -233,8 +233,12 @@ queryPlayer g s = getMove
             putStrLn "  q -- quit the game"
 
 -- |A player that uses the minimax algorithm to make its move.
-minimaxPlayer :: Game g s a => GamePlayerIO g s a
-minimaxPlayer g s = return (minimaxDecision g s)
+minimaxFullSearchPlayer :: Game g s a => GamePlayerIO g s a
+minimaxFullSearchPlayer g s = return (minimaxSearch g s)
+
+-- |A player that uses minimax with a cutoff to make its move.
+minimaxPlayer :: Int -> Game g s a => GamePlayerIO g s a
+minimaxPlayer n g s = return (minimaxCutoff' n g s)
 
 -- |A player that uses full alpha/beta search to make its move.
 alphaBetaFullSearchPlayer :: Game g s a => GamePlayerIO g s a
@@ -250,7 +254,7 @@ iterativeMinimaxPlayer :: (NFData a, Game g s a) => Double -> GamePlayerIO g s a
 iterativeMinimaxPlayer t g s = liftM head (timeLimited lim result)
     where
         lim    = round (t * 1000000)
-        result = iterativeAlphaBeta g s
+        result = iterativeMinimax g s
 
 -- |A player that uses iterative deepening alpha/beta search, looking as deep
 --  into the search tree as possible in the time limit (measured in seconds).
