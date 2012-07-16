@@ -1,6 +1,9 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
-module AI.Util.Table (Showable(..), printTable) where
+module AI.Util.Table
+  ( Showable(..)
+  , printTable
+  ) where
 
 -- |A Showable is simply a box containing a value which is an instance of 'Show'.
 data Showable = forall a. Show a => SB a

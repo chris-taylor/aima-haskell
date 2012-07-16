@@ -52,9 +52,7 @@ getEdge x y g = case M.lookup x g of
 
 -- |Add an edge between two vertices to a WeightedGraph.
 addEdge :: Ord a => a -> a -> b -> WeightedGraph a b -> WeightedGraph a b
-addEdge x y e graph = let xs  = graph ! x
-                          xs' = M.insert y e xs
-                       in M.insert x xs' graph
+addEdge x y e graph = M.adjust (M.insert y e) x graph
 
 -- |Add an undirected edge between two vertices to a WeightedGraph.
 addUndirectedEdge :: Ord a => a -> a -> b -> WeightedGraph a b -> WeightedGraph a b
