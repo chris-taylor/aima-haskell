@@ -29,6 +29,7 @@ Library
                         AI.Search.Core
                         AI.Search.Uninformed
                         AI.Search.Informed
+                        AI.Search.Local
                         AI.Search.Adversarial
                         AI.Search.CSP
                         AI.Search.Example.Graph
