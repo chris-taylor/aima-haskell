@@ -387,4 +387,3 @@ runPlayerIO game state player = do
         j <- readIORef numExpand
         k <- readIORef numMoves
         return (action, i, j, k)
-
