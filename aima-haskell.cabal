@@ -33,8 +33,11 @@ Library
                         AI.Search.CSP
                         AI.Search.Example.Graph
                         AI.Search.Example.NQueens
-                        AI.Search.Example.ConstraintSatisfaction
-                        AI.Search.Example.Games
+                        AI.Search.Example.Fig52Game
+                        AI.Search.Example.TicTacToe
+                        AI.Search.Example.Connect4
+                        AI.Search.Example.MapColoring
+                        AI.Search.Example.Sudoku
                         AI.Logic.Propositional
                         AI.Logic.FOL
                         AI.Probability.MDP

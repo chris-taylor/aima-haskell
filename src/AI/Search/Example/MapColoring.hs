@@ -1,33 +1,15 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 
-module AI.Search.Example.ConstraintSatisfaction where
+module AI.Search.Example.MapColoring where
 
 import Data.Map (Map, (!))
-
-import qualified Data.Char as C
 import qualified Data.Map as M
-import qualified Data.List as L
 
+import AI.Search.CSP
 import AI.Util.Graph (Graph)
 import AI.Util.Util
-import AI.Search.CSP
 
 import qualified AI.Util.Graph as G
-
------------------
--- Example CSP --
------------------
-
-data ExampleCSP a b = ExampleCSP
-
-exampleCSP :: ExampleCSP Char Int
-exampleCSP = ExampleCSP
-
-instance CSP ExampleCSP Char Int where
-    vars _ = "XY"
-    domains _ = M.fromList [ ('X', [1,2]), ('Y', [1]) ]
-    neighbours _ = M.fromList [ ('X',"Y"), ('Y',"X") ]
-    constraints _ x xv y yv = xv /= yv
 
 ----------------------
 -- Map Coloring CSP --
@@ -72,42 +54,3 @@ usa = MCP states "RGBY"
             \PA: NY NJ DE MD WV; WV: MD VA; VA: MD DC NC; NC: SC; NY: VT MA CA NJ;\
             \NJ: DE; DE: MD; MD: DC; VT: NH MA; MA: NH RI CT; CT: RI; ME: NH;\
             \HI: ; AK: "
-
-------------
--- Sudoku --
-------------
-
-data Sudoku v a = Sudoku (Domain String Char) deriving Show
-
-instance CSP Sudoku String Char where
-    vars s = squares
-    domains (Sudoku dom) = dom
-    neighbours s = M.fromList peers
-    constraints s x xv y yv = if x `elem` neighbours s ! y
-        then xv /= yv
-        else True
-
-cross :: [a] -> [a] -> [[a]]
-cross xs ys = [ [x,y] | x <- xs, y <- ys ]
-
-digits   = "123456789"
-rows     = "abcdefghi"
-cols     = digits
-squares  = cross rows cols
-unitlist = [ cross rows c | c <- map return cols ] ++
-           [ cross r cols | r <- map return rows ] ++
-           [ cross rs cs | rs <- ["abc","def","ghi"], cs <- ["123","456","789"] ]
-units    = [ (s, [ u | u <- unitlist, s `elem` u ]) | s <- squares ]
-peers    = [ (s, L.delete s $ L.nub $ concat u) | (s,u) <- units ]
-
-parseGrid :: String -> Sudoku String Char
-parseGrid grid =
-    Sudoku $ foldr update (mkUniversalMap squares digits) initial
-    where
-        update (x,y) = if y `elem` digits
-            then M.insert x [y]
-            else M.insert x digits
-        initial = zip squares $ filter (`elem` ( "0." ++ digits)) grid
-
-sudoku1 = parseGrid "003020600900305001001806400008102900700000008006708200002609500800203009005010300"
-
