@@ -7,19 +7,6 @@ import qualified Data.List as L
 
 import AI.Util.Util
 
--- |A knowledge base to which you can tell and ask sentences. To create a KB,
---  create instances of this class and implement ask, tell and retract.
-class KB k s q where
-    -- |Add a sentence to the KB.
-    tell :: k s -> s -> k s
-
-    -- |Return a substitution that makes the query true or Nothing.
-    ask :: k s -> q -> Maybe s
-
-    -- |Retract a sentence from the KB.
-    retract :: k s -> s -> k s
-
-
 -- |A symbolic expression. We use this type to represent logical expressions,
 --  and for terms within logical expressions.
 data Expr = Val Bool

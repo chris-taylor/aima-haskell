@@ -146,6 +146,13 @@ transpose xs = if or (map null xs)
              tails = map tail xs
           in heads : transpose tails
 
+------------------
+-- String Utils --
+------------------
+
+strip :: String -> String
+strip = reverse . dropWhile (==' ') . reverse . dropWhile (==' ')
+
 -------------------
 -- Map Functions --
 -------------------

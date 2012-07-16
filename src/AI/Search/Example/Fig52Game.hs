@@ -1,15 +1,6 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 
 module AI.Search.Example.Fig52Game where
-
---import Control.Exception
---import Data.Map (Map, (!))
---import Data.Maybe (catMaybes)
-
---import qualified Data.List as L
---import qualified Data.Map as M
---import qualified Data.Ord as O
---import qualified System.Random as R
 
 import AI.Search.Adversarial
 import AI.Util.Util
