@@ -35,11 +35,11 @@ instance Show Expr where
     show (Val True)    = "T"
     show (Val False)   = "F"
     show (Var p)       = p
-    show (Not p)       = "¬" ++ show p
-    show (And ps)      = "(" ++ (concat $ L.intersperse " ∧ " $ map show ps) ++ ")"
-    show (Or ps)       = "(" ++ (concat $ L.intersperse " ∨ " $ map show ps) ++ ")"
-    show (Implies p q) = "(" ++ show p ++ " ⇒ " ++ show q ++ ")"
-    show (Equiv p q)   = "(" ++ show p ++ " ⇔ " ++ show q ++ ")"
+    show (Not p)       = "~" ++ show p
+    show (And ps)      = "(" ++ (concat $ L.intersperse " & " $ map show ps) ++ ")"
+    show (Or ps)       = "(" ++ (concat $ L.intersperse " | " $ map show ps) ++ ")"
+    show (Implies p q) = "(" ++ show p ++ " => " ++ show q ++ ")"
+    show (Equiv p q)   = "(" ++ show p ++ " <=> " ++ show q ++ ")"
 
 -- |The expression that is always true.
 true :: Expr
