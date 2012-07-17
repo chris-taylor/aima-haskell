@@ -102,7 +102,7 @@ instance KB PropTTKB Expr where
 runProp :: IO ()
 runProp = do
     putStrLn "Propositional Logic Resolution Theorem Prover"
-    runlogic loop (empty :: PropKB Expr)
+    runLogic loop (empty :: PropKB Expr)
 
 runTT :: IO ()
 runTT = do
