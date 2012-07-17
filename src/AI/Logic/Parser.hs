@@ -1,4 +1,4 @@
-module AI.Logic.Parser (parseExpr) where
+module AI.Logic.Parser (parsePL) where
 
 import Text.ParserCombinators.Parsec
 import Text.Parsec.Char
@@ -12,8 +12,8 @@ import AI.Logic.Propositional
 --------------------------------
 
 -- |Parse a 'String' as an expression in propositional logic.
-parseExpr :: String -> Maybe Expr
-parseExpr input = case parse expr "" input of
+parsePL :: String -> Maybe Expr
+parsePL input = case parse expr "" input of
     Left _  -> Nothing
     Right x -> return x
 
