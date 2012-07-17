@@ -124,7 +124,6 @@ loop = do
         ""          -> loop
         _           -> liftIO unknown >> loop
 
---parse :: String -> Logic (PropKB Expr Expr Bool) Expr
 parse :: KB k p => String -> Logic (k p) p
 parse str = case parseExpr (strip str) of
     Left _  -> liftIO (putStrLn "***parse error") >> throwError ParseError
