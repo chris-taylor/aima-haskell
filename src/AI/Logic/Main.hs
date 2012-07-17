@@ -76,10 +76,10 @@ showPremises ps = forM_ (enumerate ps) $
 
 showHelp :: IO ()
 showHelp = do
-    putStrLn "  tell P    Store proposition P in the knowledge base"
-    putStrLn "  retract P Remove proposition P from the knowledge base"
-    putStrLn "  ask P     Ask whether P is entailed by the knowledge base"
-    putStrLn "  clear     Remove all propositions from the knowledge base"
-    putStrLn "  show      Display the current state of the knowledge base"
-    putStrLn "  help      Show this help file"
-    putStrLn "  quit      Exit the PLTP"
+    putStrLn "  tell <p>    Store proposition <p> in the knowledge base"
+    putStrLn "  retract <p> Remove proposition <p> from the knowledge base"
+    putStrLn "  ask <p>     Ask whether <p> is entailed by the knowledge base"
+    putStrLn "  clear       Remove all propositions from the knowledge base"
+    putStrLn "  show        Display the current state of the knowledge base"
+    putStrLn "  help        Show this help file"
+    putStrLn "  quit        Exit the PLTP"
