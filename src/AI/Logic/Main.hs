@@ -35,7 +35,7 @@ loop = do
 tell :: String -> StateT [Expr] IO ()
 tell expr = case parseExpr expr of
     Nothing -> liftIO (putStrLn "***parseError")
-    Just p  -> modify (p:)
+    Just p  -> modify (associate p:)
 
 ask :: String -> StateT [Expr] IO ()
 ask expr = case parseExpr expr of
