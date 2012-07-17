@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+
 module AI.Logic.Propositional where
 
 import Control.Applicative ((<$>))
@@ -6,6 +8,10 @@ import Control.Monad.State
 import qualified Data.List as L
 
 import AI.Util.Util
+
+----------------
+-- Data Types --
+----------------
 
 -- |A symbolic expression. We use this type to represent logical expressions,
 --  and for terms within logical expressions.
