@@ -26,6 +26,8 @@ instance Error LogicError where noMsg = DefaultError
 trapError :: Monad m => m a -> m ()
 trapError c = c >> return ()
 
+runLogic c = trapError . runErrorT . runStateT c
+
 -----------------
 -- Expressions --
 -----------------
@@ -100,12 +102,12 @@ instance KB PropTTKB Expr where
 runProp :: IO ()
 runProp = do
     putStrLn "Propositional Logic Resolution Theorem Prover"
-    trapError $ runErrorT $ evalStateT loop (empty :: PropKB Expr)
+    runlogic loop (empty :: PropKB Expr)
 
 runTT :: IO ()
 runTT = do
     putStrLn "Propositional Logic Truth Table Theorem Prover"
-    trapError $ runErrorT $ evalStateT loop (empty :: PropTTKB Expr)
+    runLogic loop (empty :: PropTTKB Expr)
 
 loop :: KB k p => Logic (k p) ()
 loop = do
