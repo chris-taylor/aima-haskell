@@ -8,6 +8,7 @@ import qualified System.Random as R
 import Control.Concurrent.STM
 import Control.DeepSeq
 import Control.Monad
+import Control.Monad.Error
 import Data.Map (Map, (!))
 import System.CPUTime
 import System.Random
@@ -173,6 +174,18 @@ whenM test s = test >>= \p -> when p s
 ifM :: Monad m => m Bool -> m a -> m a -> m a
 ifM test a b = test >>= \p -> if p then a else b
 
+-- |Run a REPL-style computation continuously.
+untilM :: Monad m => (t -> Bool) -> m t -> (t -> m ()) -> m ()
+untilM predicate prompt action = do
+    result <- prompt
+    if predicate result
+        then return ()
+        else action result >> untilM predicate prompt action
+
+-- |Ensure that a monadic computation doesn't throw any errors.
+trapError :: MonadError e m => m () -> m ()
+trapError c = c `catchError` \_ -> return ()
+
 --------------------
 -- Random Numbers -- 
 --------------------
@@ -201,6 +214,10 @@ probabilityIO p = getStdGen >>= \g -> return $ fst $ probability g p
 --------------------
 -- IO Combinators -- 
 --------------------
+
+-- |Read a line from stdin and return it.
+readPrompt :: IO String
+readPrompt = putStr "> " >> getLine
 
 -- |Compute a pure value and return it along with the number of microseconds
 --  taken for the computation.

@@ -16,17 +16,17 @@ import AI.Util.Util
 -- Data Types --
 ----------------
 
-data LogicError    = ParseError | UnknownCommand | DefaultError
+data LogicError    = ParseError | UnknownCommand | DefaultError deriving (Show)
 type ThrowsError   = Either LogicError
 type IOThrowsError = ErrorT LogicError IO
 type Logic k       = StateT k IOThrowsError
 
 instance Error LogicError where noMsg = DefaultError
 
-trapError :: Monad m => m a -> m ()
-trapError c = c >> return ()
+ignoreError c = c >> return ()
 
-runLogic c = trapError . runErrorT . runStateT c
+runLogic :: (Error e, Monad m) => StateT s (ErrorT e m) a -> s -> m ()
+runLogic c s = ignoreError $ runErrorT $ evalStateT c s
 
 -----------------
 -- Expressions --
@@ -110,19 +110,20 @@ runTT = do
     runLogic loop (empty :: PropTTKB Expr)
 
 loop :: KB k p => Logic (k p) ()
-loop = do
-    liftIO $ putStr "> "
-    (cmd, rest) <- fmap (break (==' ')) (liftIO getLine)
-    case cmd of
-        "show"      -> get >>= (\kb -> liftIO $ showPremises kb) >> loop
-        "help"      -> liftIO showHelp >> loop
-        "tell"      -> parse rest >>= tellKB >> loop
-        "ask"       -> parse rest >>= askKB >> loop
-        "retract"   -> parse rest >>= retractKB >> loop
-        "clear"     -> clear >> loop
-        "quit"      -> return ()
-        ""          -> loop
-        _           -> liftIO unknown >> loop
+loop = untilM (== "quit") (liftIO readPrompt) (trapError . dispatch)
+
+dispatch :: KB k p => String -> Logic (k p) ()
+dispatch str = case cmd of
+    "show"      -> get >>= (\kb -> liftIO $ showPremises kb)
+    "help"      -> liftIO showHelp
+    "tell"      -> parse rest >>= tellKB
+    "ask"       -> parse rest >>= askKB
+    "retract"   -> parse rest >>= retractKB
+    "clear"     -> clear
+    ""          -> return ()
+    _           -> liftIO unknown
+    where
+        (cmd,rest) = break (== ' ') str
 
 parse :: KB k p => String -> Logic (k p) p
 parse str = case parseExpr (strip str) of
