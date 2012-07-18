@@ -18,7 +18,6 @@
   - Write tables to arbitrary handles.
   - More customisable table layout.
   - Use an external library?
-- Write missing functions in Graph module.
 - Improve queueing module to use a more efficient data structure for priority queues.
 - Organize Utils module into subsections.
 
@@ -40,12 +39,11 @@
   - More game examples - e.g. checkers?
 - Constraint Satisfaction
   - Wrapper for CSP class to allow statistics to be collected.
-  - Examples - word puzzles, scheduling?
+  - Examples - word puzzles, scheduling, n queens?
 
 ## Logic
 
 - Propositional logic:
-  - Parser for logical expressions
   - Local search for SAT
 - First-order logic:
   - Parser for logical expressions
