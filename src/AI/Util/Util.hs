@@ -182,6 +182,11 @@ untilM predicate prompt action = do
         then return ()
         else action result >> untilM predicate prompt action
 
+-- |Run a computation, ignoring the result (i.e. run it only for its side
+--  effects).
+ignoreResult :: Monad m => m a -> m ()
+ignoreResult c = c >> return ()
+
 -- |Ensure that a monadic computation doesn't throw any errors.
 trapError :: MonadError e m => m () -> m ()
 trapError c = c `catchError` \_ -> return ()
