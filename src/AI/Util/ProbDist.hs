@@ -6,11 +6,12 @@ import Control.Monad
 import Data.Map (Map)
 import GHC.Float
 
+import qualified Data.List as L
 import qualified Data.Map as M
 
 type Prob = Float
 
-data Dist a = D { unD :: [(a,Prob)] } deriving (Show)
+data Dist a = D { unD :: [(a,Prob)] }
 
 instance Functor Dist where
     fmap f (D xs) = D [ (f x,p) | (x,p) <- xs ]
@@ -73,6 +74,24 @@ isDist p@(D xs) = firstAxiomHolds && secondAxiomHolds
 collect :: (Ord a) => Dist a -> Dist a
 collect (D xs) = D $ M.toList $ M.fromListWith (+) xs
 
+-------------------
+-- Show Instance --
+-------------------
+
+instance Show a => Show (Dist a) where
+    show (D xs) = concat $ L.intersperse "\n" $ map disp xs
+        where
+            disp (x,p) = show x ++ replicate (pad x) ' ' ++ showProb p
+            pad x      = n - length (show x) + 2
+            n          = maximum $ map (length . show . fst) xs
+
+showProb :: Prob -> String
+showProb p = show intPart ++ "." ++ show fracPart ++ "%"
+    where
+        digits   = round (1000 * p)
+        intPart  = digits `div` 10
+        fracPart = digits `mod` 10
+
 -----------------------
 -- Numeric Functions --
 -----------------------
@@ -127,7 +146,19 @@ bernoulli p a b = D [(a,p), (b,1-p)]
 uniform :: [a] -> Dist a
 uniform xs = D $ zip xs (repeat p) where p = 1 / fromIntegral (length xs)
 
+-- |A weighted distribution over a finite list. The weights give the relative
+--  probabilities attached to each outcome.
+weighted :: [(a,Int)] -> Dist a
+weighted lst = D $ zip xs ps
+    where
+        xs = map fst lst
+        ws = map snd lst
+        ps = map (\w -> fromIntegral w / fromIntegral (sum ws)) ws
+
+-- |An n-sided die.
+d :: Int -> Dist Int
 d n = uniform [1..n]
 
+-- |A regular, 6-sided die.
 die :: Dist Int
 die = d 6

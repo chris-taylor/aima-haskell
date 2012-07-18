@@ -43,6 +43,7 @@ Library
                         AI.Logic.Parser
                         AI.Logic.Propositional
                         AI.Logic.FOL
+                        AI.Probability.Bayes
                         AI.Probability.MDP
                         AI.Util.Graph
                         AI.Util.WeightedGraph
