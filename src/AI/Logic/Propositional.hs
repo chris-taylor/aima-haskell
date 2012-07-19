@@ -88,14 +88,8 @@ ttCheck expr = map check $ allModels (vars expr)
         check model = case plTrue model expr of
             Nothing -> error "Should never see this."
             Just v  -> v
-
-        allModels vars = map (zip vars) (enumerateBool (length vars))
-
-        enumerateBool 0 = [[]]
-        enumerateBool n = do
-            x  <- [True, False]
-            xs <- enumerateBool (n-1)
-            return (x:xs)
+            
+        allModels vars = map (zip vars) (bools $ length vars)
 
 -- |Is the propositional sentence a tautology - is it true in all possible
 --  models (i.e. is it entailed by true?)

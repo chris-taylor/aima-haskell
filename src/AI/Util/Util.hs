@@ -147,6 +147,13 @@ transpose xs = if or (map null xs)
              tails = map tail xs
           in heads : transpose tails
 
+bools :: Int -> [[Bool]]
+bools 0 = [[]]
+bools n = do
+    x  <- [True, False]
+    xs <- bools (n-1)
+    return (x:xs)
+
 ------------------
 -- String Utils --
 ------------------

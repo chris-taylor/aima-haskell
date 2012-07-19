@@ -2,6 +2,7 @@
 
 module AI.Util.ProbDist where
 
+import Control.Applicative
 import Control.Monad
 import Data.Map (Map)
 import GHC.Float
@@ -16,9 +17,12 @@ data Dist a = D { unD :: [(a,Prob)] }
 instance Functor Dist where
     fmap f (D xs) = D [ (f x,p) | (x,p) <- xs ]
 
+instance Applicative Dist where
+    pure x = D [(x,1)]
+    (D fs) <*> (D xs) = D $ [ (f x,p*q) | (f,q) <- fs, (x,p) <- xs ]
+
 instance Monad Dist where
     return x = D [(x,1)]
-
     (D xs) >>= f = D [ (y,p*q) | (x,p) <- xs, (y,q) <- unD (f x) ]
 
 -- |Map over the values of a probability distribution.
@@ -136,6 +140,10 @@ expectation (D xs) = sum $ [ toFloat x * p | (x,p) <- xs ]
 -------------------------------
 -- Probability Distributions --
 -------------------------------
+
+-- |A trivial probability distribution that always takes the same value.
+certainly :: a -> Dist a
+certainly = return
 
 -- |The Bernoulli distribution takes one of two possible values.
 bernoulli :: Prob -> a -> a -> Dist a
