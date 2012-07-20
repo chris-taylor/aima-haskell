@@ -127,10 +127,8 @@ bnSample bn = go M.empty (bnVars bn)
 
 -- |Rejection sampling algorithm.
 rejectionAsk :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
-rejectionAsk nIter bn fixed e = do
-    results <- sequence $ replicate nIter getSample
-    let nTrue = countIf id results
-    return $ weighted [(True, nTrue), (False, nIter - nTrue)]
+rejectionAsk nIter bn fixed e =
+    sequence (replicate nIter getSample) >>= return . empirical
 
     where
         getSample = do

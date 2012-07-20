@@ -1,6 +1,7 @@
 module AI.Probability.Example.Alarm
     ( alarm
     , AI.Probability.Bayes.enumerationAsk
+    , AI.Probability.Bayes.rejectionAsk
     ) where
 
 import AI.Probability.Bayes

@@ -190,6 +190,11 @@ weighted lst = D $ zip xs ps
         (xs,ws) = unzip lst
         ps      = map (\w -> fromIntegral w / fromIntegral (sum ws)) ws
 
+-- |Return the empirical distribution over a list, i.e. choose each element
+--  in proportion to how many times it appears in the list.
+empirical :: Ord a => [a] -> Dist a
+empirical xs = D $ M.toList $ M.fromListWith (+) $ zip xs [1..]
+
 -- |Select @n@ elements from a list without replacement.
 select :: Eq a => Int -> [a] -> Dist [a]
 select n = mapD (reverse . fst) . selectMany n
