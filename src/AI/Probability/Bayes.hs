@@ -48,12 +48,10 @@ fromList = BayesNet . foldr go M.empty
 --  Net, from parents to children, summing over the possible values when a
 --  variable is not assigned. It uses the helper function 'enumerateAll'.
 enumerationAsk :: Ord e => BayesNet e -> [(e,Bool)] -> e -> Dist Bool
-enumerationAsk bn fixed e = normalize $ D [(True,p),(False,q)]
+enumerationAsk bn fixed e = normalize $ D [(True, p True), (False, p False)]
     where
-        p = enumerateAll bn (M.insert e True a) (bnVars bn)
-        q = enumerateAll bn (M.insert e False a) (bnVars bn)
-
-        a = M.fromList fixed
+        p x = enumerateAll bn (M.insert e x a) (bnVars bn)
+        a   = M.fromList fixed
 
 -- |A helper function for 'enumerationAsk'. This performs the hard work of
 --  enumerating all unassigned values in the network and summing over their
@@ -62,10 +60,10 @@ enumerateAll :: Ord e => BayesNet e -> Map e Bool -> [e] -> Prob
 enumerateAll bn a []     = 1.0
 enumerateAll bn a (v:vs) = if v `M.member` a
     then bnProb bn a (v, a!v) * enumerateAll bn a vs
-    else let p = bnProb bn a (v,True)
-             q = enumerateAll bn (M.insert v True a)  vs
-             r = enumerateAll bn (M.insert v False a) vs
-         in p * q + (1 - p) * r
+    else p * go True + (1 - p) * go False
+    where
+        p    = bnProb bn a (v,True)
+        go x = enumerateAll bn (M.insert v x a) vs
 
 -------------------------
 -- Bayes Net Utilities --
