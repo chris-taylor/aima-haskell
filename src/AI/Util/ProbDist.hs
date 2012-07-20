@@ -4,6 +4,7 @@ module AI.Util.ProbDist where
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Random
 import Data.Map (Map)
 import GHC.Float
 
@@ -152,10 +153,17 @@ instance ToFloat Integer where
 expectation :: ToFloat a => Dist a -> Prob
 expectation (D xs) = sum $ [ toFloat x * p | (x,p) <- xs ]
 
--- |Compute the entropy of a distribution. Note that it is necessary to collect
---  like results first, to ensure that the true entropy is calculated.
+-- |Compute the entropy of a distribution, returning the result in /nats/.
+--  Note that it is necessary to collect like results first, to ensure that
+--  the true entropy is calculated.
 entropy :: Ord a => Dist a -> Prob
 entropy (D xs) = negate $ sum [ if p /= 0 then p * log p else 0 | (_,p) <- xs ]
+
+-- |Compute the entropy of a distribution, returning the result in /bits/.
+--  Note that it is necessary to collect like results first, to ensure that
+--  the true entropy is calculated.
+entropyBits :: Ord a => Dist a -> Prob
+entropyBits d = entropy d / log 2
 
 -------------------------------
 -- Probability Distributions --
@@ -182,10 +190,56 @@ weighted lst = D $ zip xs ps
         (xs,ws) = unzip lst
         ps      = map (\w -> fromIntegral w / fromIntegral (sum ws)) ws
 
--- |An n-sided die.
-d :: Int -> Dist Int
-d n = uniform [1..n]
+-- |Select @n@ elements from a list without replacement.
+select :: Eq a => Int -> [a] -> Dist [a]
+select n = mapD (reverse . fst) . selectMany n
 
--- |A regular, 6-sided die.
-die :: Dist Int
-die = d 6
+-- |Select @n@ elements from a list uniformly at random without replacement,
+--  also returning the list of remaining elements.
+selectMany :: Eq a => Int -> [a] -> Dist ([a],[a])
+selectMany 0 xs = return ([],xs)
+selectMany n xs = do
+    (v, xs1) <- selectOne xs
+    (vs,xs2) <- selectMany (n-1) xs1
+    return (v:vs,xs2)
+
+-- |Select a single element from a list uniformly at random, also returning
+--  the list that remains.
+selectOne :: Eq a => [a] -> Dist (a,[a])
+selectOne xs = uniform [(x, L.delete x xs) | x <- xs ]
+
+--------------------------------
+-- Functions on Distributions --
+--------------------------------
+
+joinWith :: Ord c => (a -> b -> c) -> Dist a -> Dist b -> Dist c
+joinWith f (D xs) (D ys) =
+    collect $ D [ (f x y, p*q) | (x,p) <- xs, (y,q) <- ys ]
+
+addD :: (Num a, Ord a) => Dist a -> Dist a -> Dist a
+addD = joinWith (+)
+
+subD :: (Num a, Ord a) => Dist a -> Dist a -> Dist a
+subD = joinWith (-)
+
+mulD :: (Num a, Ord a) => Dist a -> Dist a -> Dist a
+mulD = joinWith (*)
+
+sumD :: (Num a, Ord a) => [Dist a] -> Dist a
+sumD = L.foldl' addD (return 0)
+
+prodD :: (Num a, Ord a) => [Dist a] -> Dist a
+prodD = L.foldl' mulD (return 1)
+
+--------------
+-- Sampling --
+--------------
+
+-- |Create a random sampler from a probability distribution.
+sample :: MonadRandom m => Dist a -> m a
+sample (D []) = error "AI.Util.ProbDist.sample called with empty distribution"
+sample (D xs) = do
+    v <- getRandomR (0,1)
+    return $ fst . head . dropWhile (\(x,p) -> p < v) $ cumulative
+    where
+        cumulative = scanl1 (\(x,p) (y,q) -> (y,p+q)) xs
