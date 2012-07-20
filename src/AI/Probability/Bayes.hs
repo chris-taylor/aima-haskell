@@ -3,6 +3,7 @@ module AI.Probability.Bayes where
 import AI.Util.ProbDist
 import AI.Util.Util
 
+import Control.Monad.Random
 import Data.Map (Map, (!))
 import Data.Ord (comparing)
 import qualified Data.List as L
@@ -109,3 +110,17 @@ bnProb bn a (v,b) = if b then p else 1 - p
 bnIndex :: [Bool] -> Int
 bnIndex bs = sum $ zipWith (*) (reverse $ map toInt bs) (map (2^) [0..])
     where toInt b = if b then 0 else 1
+
+-------------------------------
+-- Sampling from a Bayes Net --
+-------------------------------
+
+-- |Random sample from a Bayes Net.
+bnSample :: (MonadRandom m, Ord e) => BayesNet e -> m (Map e Bool)
+bnSample bn = go M.empty (bnVars bn)
+    where
+        go assignment []     = return assignment
+        go assignment (v:vs) = do
+            let p = bnProb bn assignment (v,True)
+            b <- sample (bernoulli p True False)
+            go (M.insert v b assignment) vs
