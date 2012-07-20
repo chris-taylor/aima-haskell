@@ -124,3 +124,17 @@ bnSample bn = go M.empty (bnVars bn)
             let p = bnProb bn assignment (v,True)
             b <- sample (bernoulli p True False)
             go (M.insert v b assignment) vs
+
+-- |Rejection sampling algorithm.
+rejectionAsk :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
+rejectionAsk nIter bn fixed e = do
+    results <- sequence $ replicate nIter getSample
+    let nTrue = countIf id results
+    return $ weighted [(True, nTrue), (False, nIter - nTrue)]
+
+    where
+        getSample = do
+            a <- bnSample bn
+            if isConsistent a then return (a!e) else getSample
+
+        isConsistent a = and $ map (a!) (map fst fixed)
