@@ -39,12 +39,15 @@ no _       = False
 -- Tuple Functions --
 ---------------------
 
+-- |Return the first element of a 3-tuple.
 fst3 :: (a,b,c) -> a
 fst3 (a,_,_) = a
 
+-- |Return the second element of a 3-tuple.
 snd3:: (a,b,c) -> b
 snd3 (_,b,_) = b
 
+-- |Return the third element of a 3-tuple.
 thd3 :: (a,b,c) -> c
 thd3 (_,_,c) = c
 
@@ -147,6 +150,10 @@ transpose xs = if or (map null xs)
              tails = map tail xs
           in heads : transpose tails
 
+-- |Return all lists of 'Bool' of length @n@. For example,
+--
+--  >>> bools 2
+--  [[True,True],[True,False],[False,True],[False,False]] 
 bools :: Int -> [[Bool]]
 bools 0 = [[]]
 bools n = do
@@ -158,8 +165,17 @@ bools n = do
 -- String Utils --
 ------------------
 
+-- |Remove leading whitespace (spaces or tabs).
+lstrip :: String -> String
+lstrip = dropWhile (`elem` " \t")
+
+-- |Remove trailing whitespace (spaces or tabs).
+rstrip :: String -> String
+rstrip = reverse . lstrip . reverse
+
+-- |Remove both leading and trailing whitespace (spaces or tabs).
 strip :: String -> String
-strip = reverse . dropWhile (==' ') . reverse . dropWhile (==' ')
+strip = rstrip . lstrip
 
 -------------------
 -- Map Functions --
