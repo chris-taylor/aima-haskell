@@ -4,223 +4,131 @@ import AI.Util.ProbDist
 import AI.Util.Util
 
 import Data.Map (Map, (!))
+import Data.Ord (comparing)
+import qualified Data.List as L
 import qualified Data.Map as M
-
-------------------
--- Drug Testing --
-------------------
-
-data Test = Pos | Neg deriving (Show,Eq,Ord)
-
-data HeroinStatus = User | Clean deriving (Show,Eq,Ord)
-
-drugTest1 :: Dist (HeroinStatus,Test)
-drugTest1 = do
-    heroinStatus <- percentUser 0.1
-    testResult <- if heroinStatus == User
-        then percentPos 99
-        else percentPos 1
-    return (heroinStatus, testResult)
-
-percentUser p = bernoulli (p/100) User Clean
-percentPos  p = bernoulli (p/100) Pos Neg
-
-drugTest2 :: Dist (Maybe HeroinStatus)
-drugTest2 = do
-    (heroinStatus,testResult) <- drugTest1
-    return (if testResult == Pos
-        then Just heroinStatus
-        else Nothing)
-
-drugTest3 :: Dist HeroinStatus -> Dist HeroinStatus
-drugTest3 prior = bayes $ do
-    heroinStatus <- prior
-    testResult <- if heroinStatus == User
-        then percentPos 99
-        else percentPos 1
-    condition (testResult == Pos)
-    return heroinStatus
-
-----------
--- Spam --
-----------
-
-data MsgType = Spam | Ham deriving (Show,Eq,Ord,Enum,Bounded)
-
-hasWord :: String -> Dist MsgType -> Dist MsgType
-hasWord word prior = do
-    msgType <- prior
-    wordPresent <- wordPresentDist 1 msgType word
-    condition wordPresent
-    return msgType
-
-hasWords :: [String] -> Dist MsgType -> Dist MsgType
-hasWords []     prior = prior
-hasWords (w:ws) prior = hasWord w (hasWords ws prior)
-
--- List lookup
-entryFor :: Enum a => a -> [b] -> b
-entryFor a bs = bs !! fromEnum a
-
--- [Spam count, ham count]
-msgCounts :: [Int]
-msgCounts = [102, 57]
-
--- Number of spams and hams containing each word
-wordCountTable :: M.Map String [Int]
-wordCountTable = M.fromList
-    [ ("free",  [57, 6])
-    , ("bayes", [1, 10])
-    , ("monad", [0, 22]) ]
-
--- Prior distribution
-msgTypePrior :: Dist MsgType
-msgTypePrior = weighted $ zip [Spam,Ham] msgCounts
-
-wordPresentDist :: Int -> MsgType -> String -> Dist Bool
-wordPresentDist k msgType word = boolDist (n / total)
-    where
-        wordCounts = findWordCounts word
-        n     = fromIntegral $ entryFor msgType (laplaceSmooth k wordCounts)
-        total = fromIntegral $ entryFor msgType (laplaceSmooth k msgCounts)
-
-boolDist :: Prob -> Dist Bool
-boolDist p = bernoulli p True False
-
-findWordCounts :: String -> [Int]
-findWordCounts word = M.findWithDefault [0,0] word wordCountTable
-
--------------------------------------
--- Improvements to spam classifier --
--------------------------------------
-
-uniformAll :: (Enum a, Bounded a) => Dist a
-uniformAll = uniform allValues
-
-allValues :: (Enum a, Bounded a) => [a]
-allValues = enumFromTo minBound maxBound
-
-characteristic :: (Enum a, Bounded a) => (Dist a -> b) -> b
-characteristic f = f uniformAll
-
-score f = distance (characteristic f) uniformAll
-
-distance :: Ord a => Dist a -> Dist a -> Float
-distance d1 d2 = sum $ map (^2) (zipWith (-) ps1 ps2)
-    where
-        ps1 = probs $ collect $ bayes d1
-        ps2 = probs $ collect $ bayes d2
-
-laplaceSmooth :: Int -> [Int] -> [Int]
-laplaceSmooth k = map (+k)
-
---vectorFromDist = map doubleFromProb (probsFrom)
-
-----------------
--- Monty Hall --
-----------------
-
-data Result = Win | Lose deriving (Eq,Show,Ord)
-data Choice = Switch | Stay
-
-
-doors = [1..3]
-
-montyHall :: Int -> Choice -> Dist Result
-montyHall yourDoor strategy = collect $ do
-    carDoor      <- uniform doors
-    montysChoice <- monty carDoor yourDoor
-    let otherDoor = head $ filter (/=yourDoor) $ filter (/=montysChoice) doors
-    return (case strategy of
-        Stay   -> if  yourDoor == carDoor then Win else Lose
-        Switch -> if otherDoor == carDoor then Win else Lose)
-
-monty carDoor yourDoor = uniform $ filter (/=carDoor) $ filter (/=yourDoor) doors
-
---------------
--- Boy/Girl --
---------------
-
-data Child = Boy | Girl deriving (Show,Eq,Ord)
-
-child = uniform [Boy,Girl]
-
-test2 = bayes $ do
-    c1 <- child
-    c2 <- child
-    condition (c1 == Boy || c2 == Boy)
-    return c1
-
------------------
--- Biased Coin --
------------------
-
-data Coin = Biased | Unbiased deriving (Eq,Ord,Show)
-data Toss = Head | Tail deriving (Eq,Ord,Show)
-
-coin = weighted [(Biased,1),(Unbiased,999)]
-
-toss Biased   = certainly Head
-toss Unbiased = uniform [Head,Tail]
-
-test3 = bayes $ do
-    c <- coin
-    result <- sequence (replicate 10 $ toss c)
-    condition (all (==Head) result)
-    next <- toss c
-    return next
-
--------------
--- Raining --
--------------
-
-rain [] = boolDist 0.2
-
-sprinkler [rain] = if rain then boolDist 0.01 else boolDist 0.4
-
-grass [sprinkler,rain] = case [sprinkler,rain] of
-    [False,False] -> certainly False
-    [False,True]  -> boolDist 0.8
-    [True,False]  -> boolDist 0.9
-    [True,True]   -> boolDist 0.99
-
-isGrassWet = do
-    r <- rain []
-    s <- sprinkler [r]
-    g <- grass [s,r]
-    return g
-
---didItRain grassWet = bayes $ do
---    r <- rain
---    s <- sprinkler r
---    g <- grass (s,r)
---    condition (g == grassWet)
---    return r
 
 ---------------
 -- Bayes Net --
 ---------------
 
-data Node e = Node { nodeParents :: [e], nodeDist :: [Bool] -> Dist Bool }
-    --deriving (Eq,Ord)
+-- |A node in a Bayes Net. We keep things very lightweight, storing just a
+--  list of the node's parents and its conditional probability table as a list.
+data Node e = Node { parents :: [e], cond :: [Prob] } deriving (Show)
 
-newtype BayesNet e = BayesNet (Map e (Node e))
-    --deriving (Eq,Ord)
+-- |A Bayes Net is a 'Map' from variables to the nodes associated with that
+--  variable.
+newtype BayesNet e = BayesNet (Map e (Node e)) deriving (Show)
 
+-- |This function creates a Bayes Net from a list of elements of the form
+--  (variable, parents, conditional probs). The conditional probability table
+--  is specified with the first parent varying most slowly. For exampleif the
+--  parents are A and B, and the conditional probability table is
+--
+--  > A | B | Prob
+--  > --+---+-----
+--  > T | T | 0.9
+--  > T | F | 0.8
+--  > F | T | 0.7
+--  > F | F | 0.1
+--
+--  then the list of probabilities should be @[0.9,0.8,0.7,0.1]@.
 fromList :: Ord e => [ (e, [e], [Prob]) ] -> BayesNet e
-fromList = BayesNet . (foldl doOne M.empty)
+fromList = BayesNet . foldr go M.empty
     where
-        doOne m (ev,cond,ps) = M.insert ev (Node cond (mkFun cond ps)) m
+        go (ev,cond,ps) = if length ps /= 2 ^ length cond
+            then error "Invalid length for probability table"
+            else M.insert ev (Node cond ps)
 
-mkFun :: [e] -> [Prob] -> [Bool] -> Dist Bool
-mkFun cond ps = if length ps /= 2 ^ length cond
-    then error "Invalid length for probability table"
-    else listToFunction $ zip (bools $ length cond) $ map boolDist ps
+-------------
+-- Queries --
+-------------
 
-net :: BayesNet Char
-net = fromList [ ('R', "",   [0.2])
-               , ('S', "R",  [0.01, 0.4])
-               , ('G', "SR", [0.99, 0.9, 0.8, 0]) ]
+-- |The Enumeration-Ask algorithm. This iterates over variables in the Bayes
+--  Net, from parents to children, summing over the possible values when a
+--  variable is not assigned. It uses the helper function 'enumerateAll'.
+enumerationAsk :: Ord e => BayesNet e -> [(e,Bool)] -> e -> Dist Bool
+enumerationAsk bn fixed e = normalize $ D [(True,p),(False,q)]
+    where
+        p = enumerateAll bn (M.insert e True a) (bnVars bn)
+        q = enumerateAll bn (M.insert e False a) (bnVars bn)
+
+        a = M.fromList fixed
+
+-- |A helper function for 'enumerationAsk'. This performs the hard work of
+--  enumerating all unassigned values in the network and summing over their
+--  conditional probabilities.
+enumerateAll :: Ord e => BayesNet e -> Map e Bool -> [e] -> Prob
+enumerateAll bn a []     = 1.0
+enumerateAll bn a (v:vs) = if v `M.member` a
+    then bnProb bn a (v, a!v) * enumerateAll bn a vs
+    else let p = bnProb bn a (v,True)
+             q = enumerateAll bn (M.insert v True a)  vs
+             r = enumerateAll bn (M.insert v False a) vs
+         in p * q + (1 - p) * r
+
+-------------------------
+-- Bayes Net Utilities --
+-------------------------
+
+-- |Enumerate the variables in a Bayes Net, from parents to children.
+bnVars :: Ord e => BayesNet e -> [e]
+bnVars bn@(BayesNet m) = L.sortBy (comparing $ bnRank bn) (M.keys m)
+
+-- |Given the /rank/ of a variable in a Bayes Net, so that the variables can be
+--  ordered. The rank of a variable with no parents is 0. Otherwise, the rank
+--  is one more than the maximum of the ranks of the variables parents.
+bnRank :: Ord e => BayesNet e -> e -> Int
+bnRank bn e = if null ps then 0 else 1 + (maximum $ map (bnRank bn) ps)
+    where ps = bnParents bn e
+
+-- |Given a set of assignments and a variable, this function returns the values
+--  of the variable's parents in the assignment, in the order that they are
+--  specified in the Bayes Net.
+bnVals :: Ord e => BayesNet e -> Map e Bool -> e -> [Bool]
+bnVals bn a x = map (a!) (bnParents bn x)
+
+-- |Return the parents of a specified variable in a Bayes Net.
+bnParents :: Ord e => BayesNet e -> e -> [e]
+bnParents (BayesNet m) x = parents (m ! x)
+
+-- |Return the conditional probability table of a variable in a Bayes Net.
+bnCond :: Ord e => BayesNet e -> e -> [Prob]
+bnCond (BayesNet m) x = cond (m ! x)
+
+-- |Given a set of assignments and a (variable,value) pair, this function
+--  returns the probability that the variable has that value, given the
+--  assignments. Note that the variable's parents must be already assigned
+--  (this is why it is important to perform the enumeration of variables from
+--  parents to children).
+bnProb :: Ord e => BayesNet e -> Map e Bool -> (e, Bool) -> Prob
+bnProb bn a (v,b) = if b then p else 1 - p
+    where p = bnCond bn v !! bnIndex (bnVals bn a v)
+
+-- |A helper function for 'bnProb'. Given a list of parent values, this returns
+--  the correct index for a probability to be extracted from the conditional
+--  probability table associated with a variable.
+bnIndex :: [Bool] -> Int
+bnIndex bs = sum $ zipWith (*) (reverse $ map toInt bs) (map (2^) [0..])
+    where toInt b = if b then 0 else 1
+
+--------------
+-- Examples --
+--------------
+
+-- |A Bayes Network describing the "is the grass wet?" problem.
+grass :: BayesNet Char
+grass = fromList [ ('R', "",   [0.2])
+                 , ('S', "R",  [0.01, 0.4])
+                 , ('G', "SR", [0.99, 0.9, 0.8, 0]) ]
+
+-- |The "alarm" example.
+alarm :: BayesNet String
+alarm = fromList [ ("Burglary", [], [0.001])
+                 , ("Earthquake", [], [0.002])
+                 , ("Alarm", ["Burglary","Earthquake"], [0.95,0.94,0.29,0.001])
+                 , ("JohnCalls", ["Alarm"], [0.9,0.05])
+                 , ("MaryCalls", ["Alarm"], [0.7,0.02]) ]
 
 ---------------------------
 -- Actually useful stuff --

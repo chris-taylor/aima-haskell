@@ -159,9 +159,8 @@ uniform xs = D $ zip xs (repeat p) where p = 1 / fromIntegral (length xs)
 weighted :: [(a,Int)] -> Dist a
 weighted lst = D $ zip xs ps
     where
-        xs = map fst lst
-        ws = map snd lst
-        ps = map (\w -> fromIntegral w / fromIntegral (sum ws)) ws
+        (xs,ws) = unzip lst
+        ps      = map (\w -> fromIntegral w / fromIntegral (sum ws)) ws
 
 -- |An n-sided die.
 d :: Int -> Dist Int
