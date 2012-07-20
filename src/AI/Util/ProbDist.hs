@@ -55,13 +55,6 @@ vals (D xs) = map fst xs
 probs :: Dist a -> [Prob]
 probs (D xs) = map snd xs
 
--- |Normalize a probability distribution. It may be necessary to call this after
---  filtering some values from a distribution.
-normalize :: Dist a -> Dist a
-normalize p = if total =~ 1.0
-                then p
-                else mapP (/total) p where total = sum (probs p)
-
 -- |Check if a given @Dist@ values satisfies the conditions required to be a
 --  probability distribution, i.e. the probability associated with each element
 --  is positive, and the probabilities sum to 1.
@@ -71,12 +64,34 @@ isDist p@(D xs) = firstAxiomHolds && secondAxiomHolds
     firstAxiomHolds  = all (\x -> snd x >= 0) xs
     secondAxiomHolds = sum (probs p) =~ 1
 
+-- |Normalize a probability distribution. It may be necessary to call this after
+--  filtering some values from a distribution.
+normalize :: Dist a -> Dist a
+normalize p = if total =~ 1.0
+                then p
+                else mapP (/total) p where total = sum (probs p)
+
 -- |Collect equal values in a probability distribution. Since we cannot restrict
 --  the values of a probability distribution to those with an @Eq@ instance, it
 --  may sometimes be necessary to call this function to avoid explosive growth
 --  in the number of elements in a distribution.
 collect :: (Ord a) => Dist a -> Dist a
 collect (D xs) = D $ M.toList $ M.fromListWith (+) xs
+
+-- |Apply Bayes rule to a distribution. This is really just a convenience
+--  function. It normalizes the distribution, and collects results. Typically
+--  you would use it immediately after a @do@ block that uses the 'condition'
+--  function to filter out unnnecessary values.
+bayes :: Ord a => Dist a -> Dist a
+bayes = collect . normalize
+
+-- |Condition over an event in a do block. This can be used to filter out
+--  unwanted results from a distribution. Note that if any filtering is done,
+--  the distribution returned will be unnormalized. This is equivalent to
+--  'guard' - in fact we could just make 'Dist' into an instance of 'MonadPlus'.
+condition :: Bool -> Dist ()
+condition True  = return ()
+condition False = D []
 
 -------------------
 -- Show Instance --
@@ -136,6 +151,11 @@ instance ToFloat Integer where
 --  This is only defined for distributions over data that can be cast to Float.
 expectation :: ToFloat a => Dist a -> Prob
 expectation (D xs) = sum $ [ toFloat x * p | (x,p) <- xs ]
+
+-- |Compute the entropy of a distribution. Note that it is necessary to collect
+--  like results first, to ensure that the true entropy is calculated.
+entropy :: Ord a => Dist a -> Prob
+entropy (D xs) = negate $ sum [ if p /= 0 then p * log p else 0 | (_,p) <- xs ]
 
 -------------------------------
 -- Probability Distributions --

@@ -115,10 +115,10 @@ bnIndex bs = sum $ zipWith (*) (reverse $ map toInt bs) (map (2^) [0..])
 --------------
 
 -- |A Bayes Network describing the "is the grass wet?" problem.
-grass :: BayesNet Char
-grass = fromList [ ('R', "",   [0.2])
-                 , ('S', "R",  [0.01, 0.4])
-                 , ('G', "SR", [0.99, 0.9, 0.8, 0]) ]
+grass :: BayesNet String
+grass = fromList [ ("Rain", [],   [0.2])
+                 , ("Sprinkler", ["Rain"], [0.01, 0.4])
+                 , ("Grass", ["Sprinkler","Rain"], [0.99, 0.9, 0.8, 0]) ]
 
 -- |The "alarm" example.
 alarm :: BayesNet String
@@ -127,14 +127,3 @@ alarm = fromList [ ("Burglary", [], [0.001])
                  , ("Alarm", ["Burglary","Earthquake"], [0.95,0.94,0.29,0.001])
                  , ("JohnCalls", ["Alarm"], [0.9,0.05])
                  , ("MaryCalls", ["Alarm"], [0.7,0.02]) ]
-
----------------------------
--- Actually useful stuff --
----------------------------
-
-bayes :: Ord a => Dist a -> Dist a
-bayes = collect . normalize
-
-condition :: Bool -> Dist ()
-condition True  = return ()
-condition False = D []
