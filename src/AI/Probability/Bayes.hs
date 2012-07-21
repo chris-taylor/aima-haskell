@@ -3,7 +3,8 @@ module AI.Probability.Bayes
     , fromList
     , enumerationAsk
     , eliminationAsk
-    , rejectionAsk ) where
+    , rejectionAsk
+    , likelihoodWeighting ) where
 
 import AI.Util.ProbDist
 import AI.Util.Array
@@ -147,9 +148,9 @@ set e x (Factor vs ps) = if not (e `elem` vs)
                             where
                                 i = vs `indexOf` e
 
----------------------------
--- Approximate Inference --
----------------------------
+------------------------
+-- Rejection Sampling --
+------------------------
 
 -- |Random sample from a Bayes Net.
 bnSample :: (R.MonadRandom m, Ord e) => BayesNet e -> m (Map e Bool)
@@ -158,8 +159,8 @@ bnSample bn = go M.empty (bnVars bn)
         go assignment []     = return assignment
         go assignment (v:vs) = do
             let p = bnProb bn assignment (v,True)
-            b <- sample (bernoulli p True False)
-            go (M.insert v b assignment) vs
+            x <- sample (boolD p)
+            go (M.insert v x assignment) vs
 
 -- |Rejection sampling algorithm.
 rejectionAsk :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
@@ -168,10 +169,45 @@ rejectionAsk nIter bn fixed e =
 
     where
         getSample = do
-            a <- bnSample bn
-            if isConsistent a then return (a!e) else getSample
+            assignment <- bnSample bn
+            if isConsistent assignment then return (assignment!e) else getSample
 
         isConsistent a = and $ map (a!) (map fst fixed)
+
+--------------------------
+-- Likelihood Weighting --
+--------------------------
+
+-- |Random sample from a Bayes Net, with an associated likelihood weight. The
+--  weight gives the likelihood of the fixed evidence, given the sample.
+weightedSample :: (R.MonadRandom m, Ord e) => BayesNet e -> [(e,Bool)] -> m (Map e Bool, Prob)
+weightedSample bn fixed = go 1.0 (M.fromList fixed) (bnVars bn)
+    where
+        go w assignment []     = return (assignment, w)
+        go w assignment (v:vs) = if v `elem` vars
+            then
+                let w' = w * bnProb bn assignment (v, fixed %! v)
+                in go w' assignment vs
+            else do
+                let p = bnProb bn assignment (v,True)
+                x <- sample (boolD p)
+                go w (M.insert v x assignment) vs
+
+        vars = map fst fixed
+
+-- |Repeatedly draw likelihood-weighted samples from a distribution to infer
+--  probabilities from a Bayes Net.
+likelihoodWeighting :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
+likelihoodWeighting nIter bn fixed e = 
+    sequence (replicate nIter getSample) >>= return . distribution
+
+    where
+        getSample    = do
+            (assignment, w) <- weightedSample bn fixed
+            return (assignment ! e, w)
+
+        distribution = normalize . D . M.toList . M.fromListWith (+)
+
 
 -------------------------
 -- Bayes Net Utilities --

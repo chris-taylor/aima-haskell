@@ -3,6 +3,7 @@ module AI.Probability.Example.Grass
     , AI.Probability.Bayes.enumerationAsk
     , AI.Probability.Bayes.eliminationAsk
     , AI.Probability.Bayes.rejectionAsk
+    , AI.Probability.Bayes.likelihoodWeighting
     ) where
 
 import AI.Probability.Bayes

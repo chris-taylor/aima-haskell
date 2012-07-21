@@ -177,6 +177,10 @@ certainly = return
 bernoulli :: Prob -> a -> a -> Dist a
 bernoulli p a b = D [(a,p), (b,1-p)]
 
+-- |Bernoulli distribution over a boolean variable.
+boolD :: Prob -> Dist Bool
+boolD p = bernoulli p True False
+
 -- |A uniform distribution over a finite list assigns equal probability to each
 --  of the elements of the list.
 uniform :: [a] -> Dist a

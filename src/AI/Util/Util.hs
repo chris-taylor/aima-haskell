@@ -150,6 +150,12 @@ transpose xs = if or (map null xs)
              tails = map tail xs
           in heads : transpose tails
 
+-- |Unsafe look up of a variable in an association list.
+(%!) :: Eq a => [(a,b)] -> a -> b
+(%!) as a = case lookup a as of
+    Nothing -> error "Variable not found in list -- AI.Util.Util.%!"
+    Just b  -> b
+
 -- |Return all lists of 'Bool' of length @n@. For example,
 --
 --  >>> bools 2
