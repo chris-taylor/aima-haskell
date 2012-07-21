@@ -1,6 +1,7 @@
 module AI.Probability.Example.Grass
     ( grass
     , AI.Probability.Bayes.enumerationAsk
+    , AI.Probability.Bayes.eliminationAsk
     , AI.Probability.Bayes.rejectionAsk
     ) where
 

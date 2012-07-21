@@ -1,6 +1,7 @@
 module AI.Probability.Example.Alarm
     ( alarm
     , AI.Probability.Bayes.enumerationAsk
+    , AI.Probability.Bayes.eliminationAsk
     , AI.Probability.Bayes.rejectionAsk
     ) where
 
@@ -27,4 +28,4 @@ alarm = fromList [ ("Burglary", [], [0.001])
                  , ("Earthquake", [], [0.002])
                  , ("Alarm", ["Burglary","Earthquake"], [0.95,0.94,0.29,0.001])
                  , ("JohnCalls", ["Alarm"], [0.9,0.05])
-                 , ("MaryCalls", ["Alarm"], [0.7,0.02]) ]
+                 , ("MaryCalls", ["Alarm"], [0.7,0.01]) ]

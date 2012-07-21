@@ -1,6 +1,7 @@
 module AI.Probability.Bayes where
 
 import AI.Util.ProbDist
+import AI.Util.Array
 import AI.Util.Util
 
 import Control.Monad.Random
@@ -15,7 +16,7 @@ import qualified Data.Map as M
 
 -- |A node in a Bayes Net. We keep things very lightweight, storing just a
 --  list of the node's parents and its conditional probability table as a list.
-data Node e = Node { parents :: [e], cond :: [Prob] } deriving (Show)
+data Node e = Node { nodeParents :: [e], nodeCond :: [Prob] } deriving (Show)
 
 -- |A Bayes Net is a 'Map' from variables to the nodes associated with that
 --  variable.
@@ -37,13 +38,13 @@ newtype BayesNet e = BayesNet (Map e (Node e)) deriving (Show)
 fromList :: Ord e => [ (e, [e], [Prob]) ] -> BayesNet e
 fromList = BayesNet . foldr go M.empty
     where
-        go (ev,cond,ps) = if length ps /= 2 ^ length cond
+        go (ev,ps,cond) = if length cond /= 2 ^ length ps
             then error "Invalid length for probability table"
-            else M.insert ev (Node cond ps)
+            else M.insert ev (Node ps cond)
 
--------------
--- Queries --
--------------
+---------------------
+-- Enumeration Ask --
+---------------------
 
 -- |The Enumeration-Ask algorithm. This iterates over variables in the Bayes
 --  Net, from parents to children, summing over the possible values when a
@@ -65,6 +66,81 @@ enumerateAll bn a (v:vs) = if v `M.member` a
     where
         p    = bnProb bn a (v,True)
         go x = enumerateAll bn (M.insert v x a) vs
+
+---------------------
+-- Elimination Ask --
+---------------------
+
+-- |A factor in the variable elimination algorithm. A factor is a list of
+--  variables (unfixed by the problem) and a conditional probability table
+--  associated with them.
+data Factor e = Factor { fVars :: [e], fVals :: [Prob] } deriving (Show)
+
+-- |Exact inference using the elimination-ask algorithm.
+eliminationAsk :: Ord e => BayesNet e -> [(e,Bool)] -> e -> Dist Bool
+eliminationAsk bn fixed e = go [] (reverse $ bnVars bn)
+    where
+        go factors []     = let f = pointwiseProduct factors
+                            in normalize $ D $ zip [True,False] (fVals f)
+
+        go factors (v:vs) = let factors' = (mkFactor bn fixed v) : factors
+                            in if v `elem` hidden
+                                then go [sumOut v factors'] vs
+                                else go factors' vs
+
+        hidden = (e:map fst fixed) `deleteAll` bnVars bn
+
+-- |Given a Bayes Net, a list of fixed variables and a target variable, return
+--  a factor to be used in the 'eliminationAsk' algorithm.
+mkFactor :: Ord e => BayesNet e -> [(e,Bool)] -> e -> Factor e
+mkFactor bn fixed e = Factor fvar (subSlice cond is)
+    where   
+        vars = e : bnParents bn e
+        cond = bnCond bn e ++ map (1-) (bnCond bn e)
+        fvar = map fst fixed `deleteAll` vars
+        is   = getIxVector vars fixed
+
+-- |Return the pointwise product of a list of factors. This is simply a strict
+--  fold over the factors using 'mulF'.
+pointwiseProduct :: Eq e => [Factor e] -> Factor e
+pointwiseProduct = L.foldl1' mulF
+
+-- |Sum out a factor with respect to one of its variables.
+sumOut :: Eq e => e -> [Factor e] -> Factor e
+sumOut e factors = with True `addF` with False
+    where
+        with x = pointwiseProduct $ map (set e x) factors
+
+-- |Return the pointwise product of two factors. This is ugly at the moment!
+--  It should be refactored to (a) be prettier and (b) use an 'Array' instead
+--  of a list to store the factor values, as the huge amount of list indexing
+--  going on will probably be really inefficient.
+mulF :: Eq e => Factor e -> Factor e -> Factor e
+mulF f1 f2 = Factor vars (map f vals)
+    where
+        vars   = L.union (fVars f1) (fVars f2)
+        vals   = bools (length vars)
+
+        f bs = valueAt bs (getIxs f1) (fVals f1) * valueAt bs (getIxs f2) (fVals f2)
+
+        getIxs factor     = map (vars `indexOf`) (fVars factor)
+        valueAt bs ns vals = vals !! bnSubRef (bs `elemsAt` ns)
+
+-- |Return the pointwise sum of two factors. This performs a quick sanity check,
+--  requiring that the factors have the same variables in the same order.
+addF :: Eq e => Factor e -> Factor e -> Factor e
+addF (Factor vs1 ps1) (Factor vs2 ps2) = if vs1 /= vs2
+    then error "Can't add factors with different variables"
+    else Factor vs1 $ zipWith (+) ps1 ps2
+
+-- |Take a slice of a factor by setting one of its variables to a fixed value.
+--  This is a helper function for 'sumOut'.
+set :: Eq e => e -> Bool -> Factor e -> Factor e
+set e x (Factor vs ps) = if not (e `elem` vs)
+                            then Factor vs ps
+                            else Factor (L.delete e vs) (subSlice1 ps (i,x))
+                            where
+                                i = vs `indexOf` e
 
 -------------------------
 -- Bayes Net Utilities --
@@ -89,11 +165,11 @@ bnVals bn a x = map (a!) (bnParents bn x)
 
 -- |Return the parents of a specified variable in a Bayes Net.
 bnParents :: Ord e => BayesNet e -> e -> [e]
-bnParents (BayesNet m) x = parents (m ! x)
+bnParents (BayesNet m) x = nodeParents (m ! x)
 
 -- |Return the conditional probability table of a variable in a Bayes Net.
 bnCond :: Ord e => BayesNet e -> e -> [Prob]
-bnCond (BayesNet m) x = cond (m ! x)
+bnCond (BayesNet m) x = nodeCond (m ! x)
 
 -- |Given a set of assignments and a (variable,value) pair, this function
 --  returns the probability that the variable has that value, given the
@@ -102,18 +178,17 @@ bnCond (BayesNet m) x = cond (m ! x)
 --  parents to children).
 bnProb :: Ord e => BayesNet e -> Map e Bool -> (e, Bool) -> Prob
 bnProb bn a (v,b) = if b then p else 1 - p
-    where p = bnCond bn v !! bnIndex (bnVals bn a v)
+    where p = bnCond bn v !! bnSubRef (bnVals bn a v)
 
 -- |A helper function for 'bnProb'. Given a list of parent values, this returns
 --  the correct index for a probability to be extracted from the conditional
 --  probability table associated with a variable.
-bnIndex :: [Bool] -> Int
-bnIndex bs = sum $ zipWith (*) (reverse $ map toInt bs) (map (2^) [0..])
-    where toInt b = if b then 0 else 1
+bnSubRef :: [Bool] -> Int
+bnSubRef = ndSubRef . map (\x -> if x then 0 else 1)
 
--------------------------------
--- Sampling from a Bayes Net --
--------------------------------
+---------------------------
+-- Approximate Inference --
+---------------------------
 
 -- |Random sample from a Bayes Net.
 bnSample :: (MonadRandom m, Ord e) => BayesNet e -> m (Map e Bool)

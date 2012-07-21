@@ -47,9 +47,10 @@ Library
                         AI.Probability.MDP
                         AI.Probability.Example.Alarm
                         AI.Probability.Example.Grass
+                        AI.Util.Array
                         AI.Util.Graph
-                        AI.Util.WeightedGraph
                         AI.Util.ProbDist
                         AI.Util.Queue
                         AI.Util.Table
                         AI.Util.Util
+                        AI.Util.WeightedGraph

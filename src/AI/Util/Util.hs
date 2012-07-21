@@ -154,6 +154,8 @@ transpose xs = if or (map null xs)
 --
 --  >>> bools 2
 --  [[True,True],[True,False],[False,True],[False,False]] 
+--
+--  The returned list has length @2 ^ n@.
 bools :: Int -> [[Bool]]
 bools 0 = [[]]
 bools n = do
