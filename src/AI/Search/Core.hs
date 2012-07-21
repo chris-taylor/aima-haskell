@@ -23,7 +23,7 @@ module AI.Search.Core
     , treeSearch
     , graphSearch
     , compareSearchers
-    , detailedCompareSearchers )where
+    , detailedCompareSearchers ) where
 
 import Control.DeepSeq
 import Control.Monad
