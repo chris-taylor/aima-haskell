@@ -54,3 +54,5 @@
 
 - Flesh out functionality for MDPs.
 - Partially observed MDPs
+- Likelihood weighting algorithm is very slow (possibly due to non-strictness of sequence). Can this be fixed?
+- Bayes Net uses lists rather than arrays to store the conditional probability table. This is probably inefficient - profile it and check!
