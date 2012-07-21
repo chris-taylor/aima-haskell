@@ -1,6 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module AI.Probability.MDP where
+module AI.Probability.MDP
+    ( MDP
+    , Utility
+    , Policy
+    , valueIteration
+    , policyIteration ) where
 
 import Data.Map (Map, (!))
 import GHC.Float
@@ -57,24 +62,12 @@ class Ord s => MDP m s a where
 -- MDP Algorithms --
 --------------------
 
--- |Given an MDP and a utility function, determine the best policy.
-bestPolicy :: MDP m s a => m s a -> Utility s -> Policy s a
-bestPolicy mdp u = listToFunction [ (s, bestAction s) | s <- stateList mdp ]
-    where
-        bestAction s = argMax (actions mdp s) (expectedUtility mdp u s)
-
--- |The expected utility of taking action @a@ in state @s@, according to the
---  decision process and a particular utility function.
-expectedUtility :: MDP m s a => m s a -> Utility s -> s -> a -> Double
-expectedUtility mdp u s a =
-    float2Double $ expectation $ fmap u $ transition mdp s a
-
 -- |Solve a Markov Decision Process using value iteration.
 valueIteration :: MDP m s a =>
-                  m s a     -- ^ Problem to be solved
-               -> Double    -- ^ Tolerance: determines when to terminate
-               -> Utility s -- ^ The final utility function
-valueIteration mdp epsilon = go (const 0.0)
+                  m s a         -- ^ Problem to be solved
+               -> Double        -- ^ Tolerance: determines when to terminate
+               -> Policy s a    -- ^ The final policy
+valueIteration mdp epsilon = bestPolicy mdp $ go (const 0.0)
     where
         go u = if delta < epsilon * (1 - gamma) / gamma then u1 else go u1
             where
@@ -98,8 +91,6 @@ policyIteration mdp = go (\s -> head (actions mdp s)) (const 0)
                 p1 = bestPolicy mdp u1
                 unchanged = all (\s -> p s == p1 s) (stateList mdp)
 
-        gamma = discountFactor mdp
-
 -- |Return an updated utility mapp from each state in the MDP to its utility,
 --  using an approximation (modified policy iteration).
 policyEvaluation :: MDP m s a =>
@@ -116,3 +107,19 @@ policyEvaluation mdp p u k = go u k
                 f s = reward mdp s + gamma * expectedUtility mdp u s (p s)
 
         gamma = discountFactor mdp
+
+---------------
+-- Utilities --
+---------------
+
+-- |Given an MDP and a utility function, determine the best policy.
+bestPolicy :: MDP m s a => m s a -> Utility s -> Policy s a
+bestPolicy mdp u = listToFunction [ (s, bestAction s) | s <- stateList mdp ]
+    where
+        bestAction s = argMax (actions mdp s) (expectedUtility mdp u s)
+
+-- |The expected utility of taking action @a@ in state @s@, according to the
+--  decision process and a particular utility function.
+expectedUtility :: MDP m s a => m s a -> Utility s -> s -> a -> Double
+expectedUtility mdp u s a =
+    float2Double $ expectation $ fmap u $ transition mdp s a

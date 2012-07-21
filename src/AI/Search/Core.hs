@@ -1,6 +1,29 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
-module AI.Search.Core where
+module AI.Search.Core
+    ( Cost
+    , Problem
+    , initial
+    , successor
+    , goal
+    , goalTest
+    , costP
+    , valueP
+    , heuristic
+    , Node
+    , state
+    , parent
+    , action
+    , cost
+    , depth
+    , value
+    , root
+    , path
+    , expand
+    , treeSearch
+    , graphSearch
+    , compareSearchers
+    , detailedCompareSearchers )where
 
 import Control.DeepSeq
 import Control.Monad

@@ -1,12 +1,17 @@
-module AI.Probability.Bayes where
+module AI.Probability.Bayes
+    ( BayesNet
+    , fromList
+    , enumerationAsk
+    , eliminationAsk
+    , rejectionAsk ) where
 
 import AI.Util.ProbDist
 import AI.Util.Array
 import AI.Util.Util
 
-import Control.Monad.Random
 import Data.Map (Map, (!))
 import Data.Ord (comparing)
+import qualified Control.Monad.Random as R
 import qualified Data.List as L
 import qualified Data.Map as M
 
@@ -142,6 +147,32 @@ set e x (Factor vs ps) = if not (e `elem` vs)
                             where
                                 i = vs `indexOf` e
 
+---------------------------
+-- Approximate Inference --
+---------------------------
+
+-- |Random sample from a Bayes Net.
+bnSample :: (R.MonadRandom m, Ord e) => BayesNet e -> m (Map e Bool)
+bnSample bn = go M.empty (bnVars bn)
+    where
+        go assignment []     = return assignment
+        go assignment (v:vs) = do
+            let p = bnProb bn assignment (v,True)
+            b <- sample (bernoulli p True False)
+            go (M.insert v b assignment) vs
+
+-- |Rejection sampling algorithm.
+rejectionAsk :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
+rejectionAsk nIter bn fixed e =
+    sequence (replicate nIter getSample) >>= return . empirical
+
+    where
+        getSample = do
+            a <- bnSample bn
+            if isConsistent a then return (a!e) else getSample
+
+        isConsistent a = and $ map (a!) (map fst fixed)
+
 -------------------------
 -- Bayes Net Utilities --
 -------------------------
@@ -185,29 +216,3 @@ bnProb bn a (v,b) = if b then p else 1 - p
 --  probability table associated with a variable.
 bnSubRef :: [Bool] -> Int
 bnSubRef = ndSubRef . map (\x -> if x then 0 else 1)
-
----------------------------
--- Approximate Inference --
----------------------------
-
--- |Random sample from a Bayes Net.
-bnSample :: (MonadRandom m, Ord e) => BayesNet e -> m (Map e Bool)
-bnSample bn = go M.empty (bnVars bn)
-    where
-        go assignment []     = return assignment
-        go assignment (v:vs) = do
-            let p = bnProb bn assignment (v,True)
-            b <- sample (bernoulli p True False)
-            go (M.insert v b assignment) vs
-
--- |Rejection sampling algorithm.
-rejectionAsk :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
-rejectionAsk nIter bn fixed e =
-    sequence (replicate nIter getSample) >>= return . empirical
-
-    where
-        getSample = do
-            a <- bnSample bn
-            if isConsistent a then return (a!e) else getSample
-
-        isConsistent a = and $ map (a!) (map fst fixed)

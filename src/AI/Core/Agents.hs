@@ -29,7 +29,7 @@ class Object (agent p a) => Agent agent p a where
 
 -- |A wrapper for an agent that will print its percepts and actions. This will
 --  let you see what the agent is doing in the environment.
-data TraceAgent agent p a = TraceAgent { getAgent :: agent p a } deriving Show
+newtype TraceAgent agent p a = TraceAgent { getAgent :: agent p a } deriving (Show)
 
 -- |Make a TraceAgent into an instance of Object by wrapping 'isAlive'.
 instance Object (agent p a) => Object (TraceAgent agent p a) where
