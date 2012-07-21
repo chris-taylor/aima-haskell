@@ -10,6 +10,8 @@ import AI.Util.ProbDist
 import AI.Util.Array
 import AI.Util.Util
 
+import Control.DeepSeq
+import Control.Monad
 import Data.Map (Map, (!))
 import Data.Ord (comparing)
 import qualified Control.Monad.Random as R
@@ -172,7 +174,9 @@ rejectionAsk nIter bn fixed e =
             assignment <- bnSample bn
             if isConsistent assignment then return (assignment!e) else getSample
 
-        isConsistent a = and $ map (a!) (map fst fixed)
+        isConsistent a = map (a!) vars == vals
+
+        (vars,vals) = unzip fixed
 
 --------------------------
 -- Likelihood Weighting --
