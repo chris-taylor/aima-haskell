@@ -185,6 +185,10 @@ rstrip = reverse . lstrip . reverse
 strip :: String -> String
 strip = rstrip . lstrip
 
+-- |Join a list of strings, separating them with commas.
+commaSep :: [String] -> String
+commaSep xs = concat $ L.intersperse "," xs
+
 -------------------
 -- Map Functions --
 -------------------
