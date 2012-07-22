@@ -229,8 +229,8 @@ testSearcher' prob searcher = do
 testSearchers :: [ProblemIO p s a -> t] -> p s a -> IO [(t,Int,Int,Int)]
 testSearchers searchers prob = testSearcher prob `mapM` searchers
 
--- |Given a list of problems and a list of searchers, run 'testSearcher'
---  pairwise and print out a table showing the performance of each algorithm.
+-- |Given a list of problems and a list of searchers, run every algorithm on
+--  every problem and print out a table showing the performance of each.
 compareSearchers :: (Show t) =>
                     [ProblemIO p s a -> t]  -- ^ List of search algorithms
                  -> [p s a]                 -- ^ List of problems
