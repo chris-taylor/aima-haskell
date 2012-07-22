@@ -2,31 +2,35 @@ module AI.Logic.FOL where
 
 import qualified Data.List as L
 
+----------------
+-- Data Types --
+----------------
+
 data Term = Var String
           | Func String [Term]
 
-data Expr = Val Bool
-          | Pred String [Term]
-          | Not Expr
-          | And [Expr]
-          | Or  [Expr]
-          | Implies Expr Expr
-          | ForAll String Expr
-          | Exists String Expr
+data FOLExpr = Val Bool
+             | Pred String [Term]
+             | Not FOLExpr
+             | And [FOLExpr]
+             | Or  [FOLExpr]
+             | Implies FOLExpr FOLExpr
+             | ForAll String FOLExpr
+             | Exists String FOLExpr
 
 instance Show Term where
     show (Var x)     = x
     show (Func f xs) = f ++ "(" ++ commaSep (map show xs) ++ ")"
 
-instance Show Expr where
+instance Show FOLExpr where
     show (Val True)    = "T"
     show (Val False)   = "F"
-    show (Not p)       = "¬" ++ show p
-    show (And ps)      = "(" ++ (concat $ L.intersperse " ∧ " $ map show ps) ++ ")"
-    show (Or ps)       = "(" ++ (concat $ L.intersperse " ∨ " $ map show ps) ++ ")"
-    show (Implies p q) = "(" ++ show p ++ " ⇒ " ++ show q ++ ")"
-    show (ForAll x p)  = "∀" ++ x ++ ". " ++ show p
-    show (Exists x p)  = "∃" ++ x ++ ". " ++ show p
+    show (Not p)       = "~" ++ show p
+    show (And ps)      = "(" ++ (concat $ L.intersperse " & " $ map show ps) ++ ")"
+    show (Or ps)       = "(" ++ (concat $ L.intersperse " | " $ map show ps) ++ ")"
+    show (Implies p q) = "(" ++ show p ++ " => " ++ show q ++ ")"
+    show (ForAll x p)  = "forall " ++ x ++ ". " ++ show p
+    show (Exists x p)  = "exists " ++ x ++ ". " ++ show p
     show (Pred p xs)   = p ++ "(" ++ commaSep (map show xs) ++  ")"
 
 commaSep :: [String] -> String

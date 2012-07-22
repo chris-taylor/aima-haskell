@@ -3,8 +3,14 @@
 module AI.Logic.Propositional where
 
 import Control.Applicative ((<$>))
+import Control.Monad.Error
 import Control.Monad.State
+import Text.ParserCombinators.Parsec
+import Text.Parsec.Char
+import Text.Parsec.Expr
+import Text.Parsec.Token hiding (parens)
 
+import AI.Logic.Core
 import qualified Data.List as L
 
 import AI.Util.Util
@@ -15,16 +21,16 @@ import AI.Util.Util
 
 -- |A symbolic expression. We use this type to represent logical expressions,
 --  and for terms within logical expressions.
-data Expr = Val Bool
-          | Var String
-          | Not Expr
-          | And [Expr]
-          | Or [Expr]
-          | Implies Expr Expr
-          | Equiv Expr Expr
-          deriving (Eq)
+data PLExpr = Val Bool
+            | Var String
+            | Not PLExpr
+            | And [PLExpr]
+            | Or  [PLExpr]
+            | Implies PLExpr PLExpr
+            | Equiv PLExpr PLExpr
+            deriving (Eq)
 
-instance Show Expr where
+instance Show PLExpr where
     show (Val True)    = "T"
     show (Val False)   = "F"
     show (Var p)       = p
@@ -34,33 +40,72 @@ instance Show Expr where
     show (Implies p q) = "(" ++ show p ++ " => " ++ show q ++ ")"
     show (Equiv p q)   = "(" ++ show p ++ " <=> " ++ show q ++ ")"
 
+-- |Expressions in propositional logic can be parsed using 'parsePL'.
+instance Expr PLExpr where
+    parseExpr str = case parsePL str of
+        Nothing -> throwError ParseError
+        Just e  -> return e
+
+---------------------
+-- Knowledge Bases --
+---------------------
+
+-- |A simple knowledge base for propositional logic. We keep a list of known
+--  propositions (the axioms) to be used as an inference base.
+data PropKB p = PropKB [PLExpr]
+
+-- |An instance of 'KB' for propositional knowledge bases. It uses the
+--  'plResolution' algorithm to determine if a query is entailed by the KB.
+instance KB PropKB PLExpr where
+    empty                  = PropKB []
+    tell     (PropKB ps) p = PropKB $ ps ++ conjuncts (toCnf p)
+    retract  (PropKB ps) p = PropKB $ L.delete p ps
+    ask      (PropKB ps) q = plResolution (And ps) q
+    axioms   (PropKB ps)   = ps
+
+-- |Concrete instance of a propositional logic knowledge base that will use
+--  truth tables for inference.
+data PropTTKB p = PropTTKB [PLExpr]
+
+-- |The 'KB' instance for a knowledge base that uses truth tables for inference.
+instance KB PropTTKB PLExpr where
+    empty                    = PropTTKB []
+    tell     (PropTTKB ps) p = PropTTKB $ ps ++ conjuncts (toCnf p)
+    retract  (PropTTKB ps) p = PropTTKB $ L.delete p ps
+    ask      (PropTTKB ps) q = ttEntails (And ps) q
+    axioms   (PropTTKB ps)   = ps
+
+-----------------------------------
+-- Propositional Logic Utilities --
+-----------------------------------
+
 -- |The expression that is always true.
-true :: Expr
+true :: PLExpr
 true = Val True
 
 -- |The expression that is always false.
-false :: Expr
+false :: PLExpr
 false = Val False
 
 -- |Return 'True' if an expression is an atom (i.e. if it is top, bottom, or a
 --  symbol).
-isAtom :: Expr -> Bool
+isAtom :: PLExpr -> Bool
 isAtom (Val _) = True
 isAtom (Var _) = True
 isAtom _       = False
 
 -- |Return a list of all conjuncts in a logical expression.
-conjuncts :: Expr -> [Expr]
+conjuncts :: PLExpr -> [PLExpr]
 conjuncts (And xs) = xs
 conjuncts other    = [other]
 
 -- |Return a list of all disjuncts in a logical expression.
-disjuncts :: Expr -> [Expr]
+disjuncts :: PLExpr -> [PLExpr]
 disjuncts (Or xs) = xs
 disjuncts other   = [other]
 
 -- |Return a list of all the variable names in a logical expression.
-vars :: Expr -> [String]
+vars :: PLExpr -> [String]
 vars = L.nub . findVars
     where
         findVars (Val _) = []
@@ -77,12 +122,12 @@ vars = L.nub . findVars
 
 -- |Does the first logical expression entail the second? This algorithm uses
 --  truth tables (Fig 7.10).
-ttEntails :: Expr -> Expr -> Bool
+ttEntails :: PLExpr -> PLExpr -> Bool
 ttEntails s t = and $ ttCheck (s `Implies` t)
 
 -- |Helper function for ttEntails. Evaluates the expression in all possible
 --  models.
-ttCheck :: Expr -> [Bool]
+ttCheck :: PLExpr -> [Bool]
 ttCheck expr = map check $ allModels (vars expr)
     where   
         check model = case plTrue model expr of
@@ -93,19 +138,19 @@ ttCheck expr = map check $ allModels (vars expr)
 
 -- |Is the propositional sentence a tautology - is it true in all possible
 --  models (i.e. is it entailed by true?)
-ttTrue :: Expr -> Bool
+ttTrue :: PLExpr -> Bool
 ttTrue s = true `ttEntails` s
 
 -- |Is the propositional sentence a contradiction - is it false in all
 --  possible models (i.e. does it entail false?)
-ttFalse :: Expr -> Bool
+ttFalse :: PLExpr -> Bool
 ttFalse s = s `ttEntails` false
 
 -- |Return 'True' if the propositional logic expression is true in the model,
 --  and 'False' if it is false. If the model does not specify the value for
 --  every proposition then return 'Nothing' (note that this may happen even
 --  when the expression is tautological).
-plTrue :: [(String,Bool)] -> Expr -> Maybe Bool
+plTrue :: [(String,Bool)] -> PLExpr -> Maybe Bool
 plTrue model (Val b)  = Just b
 plTrue model (Var p)  = lookup p model
 plTrue model (Not p)  = not <$> (plTrue model p)
@@ -125,11 +170,11 @@ plTrue model (Equiv p q) = do
 -----------------------------
 
 -- |Convert a propositional logical sentence to conjunctive normal form.
-toCnf :: Expr -> Expr
+toCnf :: PLExpr -> PLExpr
 toCnf = associate . distributeAndOverOr . moveNotInward . eliminateImpl
 
 -- |Convert implication and equality into and, or and not.
-eliminateImpl :: Expr -> Expr
+eliminateImpl :: PLExpr -> PLExpr
 eliminateImpl (p `Implies` q) = Or [Not p', q']
     where p' = eliminateImpl p
           q' = eliminateImpl q
@@ -143,7 +188,7 @@ eliminateImpl other    = other
 
 -- |Given a sentence which is a sequence of conjunctions, disjunctions and
 --  negations, rewrite a sentence by moving all the negation operators inward.
-moveNotInward :: Expr -> Expr
+moveNotInward :: PLExpr -> PLExpr
 moveNotInward (Not s)  = case s of
     And ps -> Or  $ map (moveNotInward . Not) ps
     Or ps  -> And $ map (moveNotInward . Not) ps
@@ -155,7 +200,7 @@ moveNotInward expr     = expr
 
 -- |Given a sequence of conjunctions and disjunctions, put it into conjunctive
 --  normal form by distributing all of the disjunctions across the conjunctions.
-distributeAndOverOr :: Expr -> Expr
+distributeAndOverOr :: PLExpr -> PLExpr
 distributeAndOverOr (Or ps) = foldr1 distribute (map distributeAndOverOr ps)
     where
         distribute (And xs) p = And $ map distributeAndOverOr [ Or [x,p] | x <- xs ]
@@ -169,7 +214,7 @@ distributeAndOverOr expr     = expr
 
 -- |Reduce an expression to associative form, i.e. flatten out all nested lists
 --  of And and Or.
-associate :: Expr -> Expr
+associate :: PLExpr -> PLExpr
 associate (And ps) = And $ foldr f [] (map associate ps)
     where f (And xs) ys = xs ++ ys
           f expr ys     = expr : ys
@@ -186,7 +231,7 @@ associate expr     = expr
 ----------------
 
 -- |Return 'True' if s and t are complementary literals.
-complementary :: Expr -> Expr -> Bool
+complementary :: PLExpr -> PLExpr -> Bool
 complementary (Not p) q = isAtom p && isAtom q && p == q
 complementary p (Not q) = isAtom p && isAtom q && p == q
 complementary _ _       = False
@@ -194,7 +239,7 @@ complementary _ _       = False
 -- |Return 'True' if a disjunction of literals can be demonstrated to be a
 --  tautology without need of evaluation - this is the case if it contains two
 --  complementary literals.
-isTautology :: Expr -> Bool
+isTautology :: PLExpr -> Bool
 isTautology expr = or $ map (uncurry complementary) clausePairs
     where
         clausePairs = unorderedPairs (disjuncts expr)
@@ -205,7 +250,7 @@ isTautology expr = or $ map (uncurry complementary) clausePairs
 --  pair of clauses. If a contradiction is generated, then the algorithm returns
 --  'True', otherwise it continues. If at any stage, no new clauses can be
 --  generated, then the algorithm returns 'False'.
-plResolution :: Expr -> Expr -> Bool
+plResolution :: PLExpr -> PLExpr -> Bool
 plResolution s t = go $ conjuncts $ toCnf $ And [s, Not t]
     where
         go clauses = if contradictionDerived
@@ -226,7 +271,7 @@ plResolution s t = go $ conjuncts $ toCnf $ And [s, Not t]
                 resolvents = plResolve x y
 
 -- |Return the set of all possible clauses obtained by resolving the two inputs.
-plResolve :: Expr -> Expr -> [Expr]
+plResolve :: PLExpr -> PLExpr -> [PLExpr]
 plResolve p q =
     filter (not . isTautology) [resolve x y | x <- ps, y <- qs, complementary x y]
     where
@@ -243,26 +288,71 @@ plResolve p q =
 
 -- |Return 'True' if an expression in propositional logic is a literal, i.e. if
 --  it is a symbol, or the negation of a symbol.
-isLiteral :: Expr -> Bool
+isLiteral :: PLExpr -> Bool
 isLiteral (Not p) = isAtom p
 isLiteral p       = isAtom p
 
 -- |Return 'True' if a literal expression in propositional logic is positive,
 --  i.e. it is not a negation.
-isPositive :: Expr -> Bool
+isPositive :: PLExpr -> Bool
 isPositive (Not p) = False
 isPositive _       = True
 
 -- |Return 'True' if an expression in propositional logic is a definite clause,
 --  i.e. if it is a disjunction of literals, exactly one of which is positive.
-isDefiniteClause :: Expr -> Bool
+isDefiniteClause :: PLExpr -> Bool
 isDefiniteClause expr = all isLiteral xs && countIf isPositive xs == 1
     where xs = disjuncts expr
 
 -- |Return 'True' if an expresssion in propositional logic is a Horn clause,
 --  i.e. if it is at disjunction of literals, at most one of which is positive.
-isHornClause :: Expr -> Bool
+isHornClause :: PLExpr -> Bool
 isHornClause expr = all isLiteral xs && countIf isPositive xs < 2
     where xs = disjuncts expr
 
+--------------------------------
+-- Propositional Logic Parser --
+--------------------------------
 
+-- |Parse a 'String' as an expression in propositional logic.
+parsePL :: String -> Maybe PLExpr
+parsePL input = case parse expr "" input of
+    Left _  -> Nothing
+    Right x -> return x
+
+expr :: Parser PLExpr
+expr = buildExpressionParser table term <?> "expression"
+
+parseVal :: Parser PLExpr
+parseVal = (char 'T' >> return (Val True))
+       <|> (char 'F' >> return (Val False))
+       <?> "T or F"
+
+parseVar :: Parser PLExpr
+parseVar = do
+    c  <- letter
+    cs <- many alphaNum
+    return $ Var (c:cs)
+
+term :: Parser PLExpr
+term = parens expr
+   <|> parseVal
+   <|> parseVar
+   <?> "T, F or proposition name"
+
+parens :: Parser a -> Parser a
+parens p = do
+    char '(' >> spaces
+    x <- p
+    spaces >> char ')'
+    return x
+
+table = 
+    [ [prefix "~" Not]
+    , [binary "&" (\x y -> And [x,y]) AssocLeft]
+    , [binary "|" (\x y -> Or [x,y]) AssocLeft]
+    , [binary "=>" Implies AssocRight]
+    , [binary "<=>" Equiv AssocRight] ]
+
+binary name fun assoc = Infix (do{ string name; return fun }) assoc
+prefix name fun       = Prefix (do{ string name; return fun })
