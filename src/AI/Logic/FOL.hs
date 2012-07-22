@@ -56,7 +56,8 @@ instance Expr FOLExpr where
 -- Unification --
 -----------------
 
-data UnificationExpr = UTerm Term
+data UnificationExpr = UVar String
+                     | UTerm Term
                      | UExpr FOLExpr
                      | UList [UnificationExpr]
                      deriving (Eq)
@@ -83,7 +84,7 @@ unifyVar :: String -> UnificationExpr -> Map String Term -> Maybe (Map String Te
 unifyVar var x theta
     | M.member var theta = unify' (UTerm $ theta ! var) x (Just theta)
     | isVar x && M.member (getVar x) theta =
-        unify' (UTerm $ Var var) (UTerm $ theta ! getVar x) (Just theta)
+        unify' (UVar var) (UTerm $ theta ! getVar x) (Just theta)
     | occurCheck var x   = Nothing
     | otherwise          = Just (M.insert var (getTerm x) theta)
 
@@ -100,16 +101,20 @@ occurCheck var x
 ----------------------------------
 
 isVar :: UnificationExpr -> Bool
-isVar (UTerm (Var _)) = True
-isVar _               = False
+isVar (UVar _) = True
+isVar _        = False
 
 getVar :: UnificationExpr -> String
-getVar (UTerm (Var x)) = x
-getVar _               = error "Expression not a variable -- AI.Logic.FOL.getVar"
+getVar (UVar x) = x
+getVar _        = error "Not a variable -- AI.Logic.FOL.getVar"
+
+isTerm :: UnificationExpr -> Bool
+isTerm (UTerm _) = True
+isTerm _         = False
 
 getTerm :: UnificationExpr -> Term
 getTerm (UTerm t) = t
-getTerm _         = error "Expression is not a term -- AI.Logic.FOL.getTerm"
+getTerm _         = error "Not a term -- AI.Logic.FOL.getTerm"
 
 isExpr :: UnificationExpr -> Bool
 isExpr (UExpr _) = True
@@ -121,7 +126,9 @@ getArgs (UExpr x) = UList (go x)
           go (And ps)      = map UExpr ps
           go (Or ps)       = map UExpr ps
           go (Implies p q) = map UExpr [p,q]
-          go (Pred p ts)   = map UTerm ts
+          go (Pred p ts)   = map toU ts
+            where toU (Var x) = UVar x
+                  toU term    = UTerm term
 getArgs _ = error "Not an expression -- AI.Logic.FOL.getArgs"
 
 getOp :: UnificationExpr -> UnificationExpr
