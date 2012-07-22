@@ -245,7 +245,7 @@ probability g p = if p' < p then (True, g') else (False, g')
 
 -- |Return @True@ with probability p.
 probabilityIO :: (R.Random a, Ord a, Num a) => a -> IO Bool
-probabilityIO p = getStdGen >>= \g -> return $ fst $ probability g p
+probabilityIO p = randomIO >>= \q -> return (if q < p then True else False)
 
 --------------------
 -- IO Combinators -- 

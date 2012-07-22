@@ -24,11 +24,13 @@ import qualified Data.Map as M
 
 -- |A node in a Bayes Net. We keep things very lightweight, storing just a
 --  list of the node's parents and its conditional probability table as a list.
-data Node e = Node { nodeParents :: [e], nodeCond :: [Prob] } deriving (Show)
+data Node e = Node { nodeParents :: [e]
+                   , nodeCond :: [Prob] } deriving (Show)
 
--- |A Bayes Net is a 'Map' from variables to the nodes associated with that
---  variable.
-newtype BayesNet e = BayesNet (Map e (Node e)) deriving (Show)
+-- |A Bayes Net contains two fields - a list of variables ordered from parents
+--  to children, and a 'Map' from variable names to 'Node's.
+data BayesNet e = BayesNet { bnVars :: [e]
+                           , bnMap :: Map e (Node e) } deriving (Show)
 
 -- |This function creates a Bayes Net from a list of elements of the form
 --  (variable, parents, conditional probs). The conditional probability table
@@ -44,11 +46,18 @@ newtype BayesNet e = BayesNet (Map e (Node e)) deriving (Show)
 --
 --  then the list of probabilities should be @[0.9,0.8,0.7,0.1]@.
 fromList :: Ord e => [ (e, [e], [Prob]) ] -> BayesNet e
-fromList = BayesNet . foldr go M.empty
+fromList xs = BayesNet vars net
     where
+        vars = L.sortBy (comparing rank) (M.keys net)
+
+        net  = foldr go M.empty xs
+
         go (ev,ps,cond) = if length cond /= 2 ^ length ps
             then error "Invalid length for probability table"
             else M.insert ev (Node ps cond)
+
+        rank e = if null ps then 0 else 1 + maximum (map rank ps)
+            where ps = nodeParents (net ! e)
 
 ---------------------
 -- Enumeration Ask --
@@ -155,13 +164,13 @@ set e x (Factor vs ps) = if not (e `elem` vs)
 ------------------------
 
 -- |Random sample from a Bayes Net.
-bnSample :: (R.MonadRandom m, Ord e) => BayesNet e -> m (Map e Bool)
+bnSample :: Ord e => BayesNet e -> IO (Map e Bool)
 bnSample bn = go M.empty (bnVars bn)
     where
         go assignment []     = return assignment
         go assignment (v:vs) = do
             let p = bnProb bn assignment (v,True)
-            x <- sample (boolD p)
+            x <- probabilityIO p
             go (M.insert v x assignment) vs
 
 -- |Rejection sampling algorithm.
@@ -184,8 +193,10 @@ rejectionAsk nIter bn fixed e =
 
 -- |Random sample from a Bayes Net, with an associated likelihood weight. The
 --  weight gives the likelihood of the fixed evidence, given the sample.
-weightedSample :: (R.MonadRandom m, Ord e) => BayesNet e -> [(e,Bool)] -> m (Map e Bool, Prob)
-weightedSample bn fixed = go 1.0 (M.fromList fixed) (bnVars bn)
+weightedSample :: Ord e => BayesNet e -> [(e,Bool)] -> IO (Map e Bool, Prob)
+weightedSample bn fixed =
+    {-# SCC "weightedSample" #-}
+    go 1.0 (M.fromList fixed) (bnVars bn)
     where
         go w assignment []     = return (assignment, w)
         go w assignment (v:vs) = if v `elem` vars
@@ -194,7 +205,7 @@ weightedSample bn fixed = go 1.0 (M.fromList fixed) (bnVars bn)
                 in go w' assignment vs
             else do
                 let p = bnProb bn assignment (v,True)
-                x <- sample (boolD p)
+                x <- probabilityIO p
                 go w (M.insert v x assignment) vs
 
         vars = map fst fixed
@@ -203,44 +214,35 @@ weightedSample bn fixed = go 1.0 (M.fromList fixed) (bnVars bn)
 --  probabilities from a Bayes Net.
 likelihoodWeighting :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
 likelihoodWeighting nIter bn fixed e = 
+    {-# SCC "likelihoodWeighting" #-}
     sequence (replicate nIter getSample) >>= return . distribution
 
     where
-        getSample    = do
-            (assignment, w) <- weightedSample bn fixed
-            return (assignment ! e, w)
+        getSample    =
+            {-# SCC "getSampleLW" #-}
+            weightedSample bn fixed >>= \(a, w) -> return (a ! e, w)
 
-        distribution = normalize . D . M.toList . M.fromListWith (+)
-
+        distribution =
+            {-# SCC "distributionLW" #-}
+            normalize . D . M.toList . M.fromListWith (+)
 
 -------------------------
 -- Bayes Net Utilities --
 -------------------------
 
--- |Enumerate the variables in a Bayes Net, from parents to children.
-bnVars :: Ord e => BayesNet e -> [e]
-bnVars bn@(BayesNet m) = L.sortBy (comparing $ bnRank bn) (M.keys m)
-
--- |Given the /rank/ of a variable in a Bayes Net, so that the variables can be
---  ordered. The rank of a variable with no parents is 0. Otherwise, the rank
---  is one more than the maximum of the ranks of the variables parents.
-bnRank :: Ord e => BayesNet e -> e -> Int
-bnRank bn e = if null ps then 0 else 1 + (maximum $ map (bnRank bn) ps)
-    where ps = bnParents bn e
-
 -- |Given a set of assignments and a variable, this function returns the values
 --  of the variable's parents in the assignment, in the order that they are
 --  specified in the Bayes Net.
 bnVals :: Ord e => BayesNet e -> Map e Bool -> e -> [Bool]
-bnVals bn a x = map (a!) (bnParents bn x)
+bnVals bn a x = {-# SCC "bnVals" #-} map (a!) (bnParents bn x)
 
 -- |Return the parents of a specified variable in a Bayes Net.
 bnParents :: Ord e => BayesNet e -> e -> [e]
-bnParents (BayesNet m) x = nodeParents (m ! x)
+bnParents (BayesNet _ m) x = {-# SCC "bnParents" #-} nodeParents (m ! x)
 
 -- |Return the conditional probability table of a variable in a Bayes Net.
 bnCond :: Ord e => BayesNet e -> e -> [Prob]
-bnCond (BayesNet m) x = nodeCond (m ! x)
+bnCond (BayesNet _ m) x = {-# SCC "bnCond" #-} nodeCond (m ! x)
 
 -- |Given a set of assignments and a (variable,value) pair, this function
 --  returns the probability that the variable has that value, given the
@@ -248,11 +250,11 @@ bnCond (BayesNet m) x = nodeCond (m ! x)
 --  (this is why it is important to perform the enumeration of variables from
 --  parents to children).
 bnProb :: Ord e => BayesNet e -> Map e Bool -> (e, Bool) -> Prob
-bnProb bn a (v,b) = if b then p else 1 - p
+bnProb bn a (v,b) = {-# SCC "bnProb" #-} if b then p else 1 - p
     where p = bnCond bn v !! bnSubRef (bnVals bn a v)
 
 -- |A helper function for 'bnProb'. Given a list of parent values, this returns
 --  the correct index for a probability to be extracted from the conditional
 --  probability table associated with a variable.
 bnSubRef :: [Bool] -> Int
-bnSubRef = ndSubRef . map (\x -> if x then 0 else 1)
+bnSubRef = {-# SCC "bnSubRef" #-} ndSubRef . map (\x -> if x then 0 else 1)

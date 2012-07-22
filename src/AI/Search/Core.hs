@@ -2,21 +2,8 @@
 
 module AI.Search.Core
     ( Cost
-    , Problem
-    , initial
-    , successor
-    , goal
-    , goalTest
-    , costP
-    , valueP
-    , heuristic
-    , Node
-    , state
-    , parent
-    , action
-    , cost
-    , depth
-    , value
+    , Problem (..)
+    , Node (..)
     , root
     , path
     , expand
