@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 bash cleanup.sh
 ghc -O2 likelihoodWeighting.hs -rtsopts -prof -auto-all
