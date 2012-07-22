@@ -1,14 +1,17 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
-module AI.Search.Core
-    ( Cost
-    , Problem (..)
+module AI.Search.Core (
+    -- * Core classes and data structures
+      Problem (..)  
     , Node (..)
+    , Cost
     , root
     , path
     , expand
+    -- * Search algorithms
     , treeSearch
     , graphSearch
+    -- * Algorithm comparison
     , compareSearchers
     , detailedCompareSearchers ) where
 
