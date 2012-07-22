@@ -28,7 +28,7 @@ data Node e = Node { nodeParents :: [e]
                    , nodeCond :: [Prob] } deriving (Show)
 
 -- |A Bayes Net contains two fields - a list of variables ordered from parents
---  to children, and a 'Map' from variable names to 'Node's.
+--  to children, and a 'Map' from variable names to Nodes.
 data BayesNet e = BayesNet { bnVars :: [e]
                            , bnMap :: Map e (Node e) } deriving (Show)
 
@@ -65,7 +65,7 @@ fromList xs = BayesNet vars net
 
 -- |The Enumeration-Ask algorithm. This iterates over variables in the Bayes
 --  Net, from parents to children, summing over the possible values when a
---  variable is not assigned. It uses the helper function 'enumerateAll'.
+--  variable is not assigned.
 enumerationAsk :: Ord e => BayesNet e -> [(e,Bool)] -> e -> Dist Bool
 enumerationAsk bn fixed e = normalize $ D [(True, p True), (False, p False)]
     where
