@@ -1,0 +1,39 @@
+	Sun Jul 22 12:36 2012 Time and Allocation Profiling Report  (Final)
+
+	   likelihoodWeighting +RTS -K100M -s -p -hy -RTS
+
+	total time  =        2.09 secs   (2088 ticks @ 1000 us, 1 processor)
+	total alloc = 446,471,580 bytes  (excludes profiling overheads)
+
+COST CENTRE MODULE  %time %alloc
+
+main        Main    100.0  100.0
+
+
+                                                                 individual     inherited
+COST CENTRE MODULE                             no.     entries  %time %alloc   %time %alloc
+
+MAIN        MAIN                                64           0    0.0    0.0   100.0  100.0
+ main       Main                               129           0  100.0  100.0   100.0  100.0
+  n         Main                               136           1    0.0    0.0     0.0    0.0
+  putInfo   Main                               131           1    0.0    0.0     0.0    0.0
+ CAF        Main                               127           0    0.0    0.0     0.0    0.0
+  putInfo   Main                               135           0    0.0    0.0     0.0    0.0
+  fixed     Main                               134           1    0.0    0.0     0.0    0.0
+  x         Main                               133           1    0.0    0.0     0.0    0.0
+  main      Main                               128           1    0.0    0.0     0.0    0.0
+   main.d1  Main                               132           1    0.0    0.0     0.0    0.0
+   putInfo  Main                               130           1    0.0    0.0     0.0    0.0
+ CAF        AI.Probability.Bayes               126           0    0.0    0.0     0.0    0.0
+ CAF        AI.Probability.Example.Alarm       125           0    0.0    0.0     0.0    0.0
+ CAF        AI.Util.Array                      123           0    0.0    0.0     0.0    0.0
+ CAF        System.Random                      121           0    0.0    0.0     0.0    0.0
+ CAF        GHC.IO.Handle.FD                   119           0    0.0    0.0     0.0    0.0
+ CAF        GHC.Conc.Signal                    111           0    0.0    0.0     0.0    0.0
+ CAF        GHC.IO.Encoding                    107           0    0.0    0.0     0.0    0.0
+ CAF        GHC.Show                           105           0    0.0    0.0     0.0    0.0
+ CAF        Data.Fixed                         104           0    0.0    0.0     0.0    0.0
+ CAF        System.CPUTime                     103           0    0.0    0.0     0.0    0.0
+ CAF        Data.Time.Clock.POSIX              101           0    0.0    0.0     0.0    0.0
+ CAF        GHC.Integer.Logarithms.Internals    96           0    0.0    0.0     0.0    0.0
+ CAF        GHC.IO.Encoding.Iconv               87           0    0.0    0.0     0.0    0.0
