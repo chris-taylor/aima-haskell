@@ -3,7 +3,7 @@ module AI.Probability.Bayes
     , fromList
     , enumerationAsk
     , eliminationAsk
-    , rejectionAsk
+    , rejectionSample
     , likelihoodWeighting ) where
 
 import AI.Util.ProbDist
@@ -163,7 +163,7 @@ set e x (Factor vs ps) = if not (e `elem` vs)
 -- Rejection Sampling --
 ------------------------
 
--- |Random sample from a Bayes Net.
+-- |Random sample from a Bayes Net, according to the prior distribution.
 bnSample :: Ord e => BayesNet e -> IO (Map e Bool)
 bnSample bn = go M.empty (bnVars bn)
     where
@@ -173,9 +173,11 @@ bnSample bn = go M.empty (bnVars bn)
             x <- probabilityIO p
             go (M.insert v x assignment) vs
 
--- |Rejection sampling algorithm.
-rejectionAsk :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
-rejectionAsk nIter bn fixed e =
+-- |Rejection sampling algorithm. Repeatedly samples from a Bayes Net and
+--  discards samples that do not match the evidence, and builds a probability
+--  distribution from the result.
+rejectionSample :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
+rejectionSample nIter bn fixed e =
     foldM func initial [1..nIter] >>= return . weighted . M.toList
 
     where

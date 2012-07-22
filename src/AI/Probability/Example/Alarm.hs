@@ -2,7 +2,7 @@ module AI.Probability.Example.Alarm
     ( alarm
     , AI.Probability.Bayes.enumerationAsk
     , AI.Probability.Bayes.eliminationAsk
-    , AI.Probability.Bayes.rejectionAsk
+    , AI.Probability.Bayes.rejectionSample
     , AI.Probability.Bayes.likelihoodWeighting
     ) where
 
