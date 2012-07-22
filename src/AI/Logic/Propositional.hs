@@ -5,6 +5,7 @@ module AI.Logic.Propositional where
 import Control.Applicative ((<$>))
 import Control.Monad.Error
 import Control.Monad.State
+import Data.Map (Map, (!))
 import Text.ParserCombinators.Parsec
 import Text.Parsec.Char
 import Text.Parsec.Expr
@@ -12,6 +13,7 @@ import Text.Parsec.Token hiding (parens)
 
 import AI.Logic.Core
 import qualified Data.List as L
+import qualified Data.Map as M
 
 import AI.Util.Util
 
@@ -84,7 +86,7 @@ instance KB DefClauseKB DefiniteClause where
     empty             = DC []
     tell    (DC cs) c = DC $ cs ++ [c]
     retract (DC cs) c = DC $ L.delete c cs
-    ask     (DC cs) c = undefined
+    ask     (DC cs) c = fcEntails cs (conclusion c)
     axioms  (DC cs)   = cs 
 
 -----------------------------------
@@ -298,25 +300,19 @@ plResolve p q =
 -- Horn Clauses --
 ------------------
 
-data Symbol = Lit Bool
-            | Sym String deriving (Eq)
+type Symbol = String
 
-data DefiniteClause = DefiniteClause { dcBody :: [Symbol]
-                                     , dcHead :: Symbol } deriving (Eq)
-
-instance Show Symbol where
-    show (Lit True)  = "T"
-    show (Lit False) = "F"
-    show (Sym p)     = p
+data DefiniteClause = DefiniteClause { premises :: [Symbol]
+                                     , conclusion :: Symbol } deriving (Eq,Ord)
 
 instance Show DefiniteClause where
-    show (DefiniteClause []   hd) = show hd 
+    show (DefiniteClause []   hd) = hd 
     show (DefiniteClause body hd) =
-        (concat $ L.intersperse " & " $ map show body) ++ " => " ++ show hd
+        (concat $ L.intersperse " & " body) ++ " => " ++ hd
 
 toDefiniteClause :: PLExpr -> ThrowsError DefiniteClause
-toDefiniteClause (Val x) = return $ DefiniteClause [] (Lit x)
-toDefiniteClause (Var x) = return $ DefiniteClause [] (Sym x)
+toDefiniteClause (Val x) = return $ DefiniteClause [] (show x)
+toDefiniteClause (Var x) = return $ DefiniteClause [] x
 toDefiniteClause (p `Implies` q) = if all isAtom xs && isAtom q
     then return $ DefiniteClause (map toSym xs) (toSym q)
     else throwError InvalidExpression
@@ -324,9 +320,44 @@ toDefiniteClause (p `Implies` q) = if all isAtom xs && isAtom q
 toDefiniteClause _ = throwError InvalidExpression
 
 toSym :: PLExpr -> Symbol
-toSym (Val x) = Lit x
-toSym (Var x) = Sym x
+toSym (Val x) = show x
+toSym (Var x) = x
 toSym _       = error "Not an atom -- AI.Logic.Propositional.toSym"
+
+isFact :: DefiniteClause -> Bool
+isFact (DefiniteClause [] _) = True
+isFact _                     = False
+
+facts :: [DefiniteClause] -> [String]
+facts = map conclusion . filter isFact
+
+----------------------
+-- Forward Chaining --
+----------------------
+
+fcEntails :: [DefiniteClause] -> Symbol -> Bool
+fcEntails kb q = go initialCount [] (facts kb)
+    where
+        go count inferred []     = False
+        go count inferred (p:ps) = if p == q
+            then True
+            else if p `elem` inferred
+                    then go count inferred ps
+                    else go count' (p:inferred) agenda'
+                        where (count', agenda') = run kb p count ps
+
+        run []     p cnt ag = (cnt, ag)
+        run (c:cs) p cnt ag = if not (p `elem` premises c)
+            then run cs p cnt ag
+            else if n == 1
+                    then run cs p cnt' (conclusion c:ag)
+                    else run cs p cnt' ag
+            where
+                n    = cnt ! c
+                cnt' = M.insert c (n-1) cnt
+
+        initialCount = foldr f M.empty kb
+            where f c cnt = M.insert c (length $ premises c) cnt
 
 --------------------------------
 -- Propositional Logic Parser --
