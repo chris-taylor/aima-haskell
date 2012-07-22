@@ -176,12 +176,17 @@ bnSample bn = go M.empty (bnVars bn)
 -- |Rejection sampling algorithm.
 rejectionAsk :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
 rejectionAsk nIter bn fixed e =
-    sequence (replicate nIter getSample) >>= return . empirical
+    foldM func initial [1..nIter] >>= return . weighted . M.toList
 
     where
-        getSample = do
-            assignment <- bnSample bn
-            if isConsistent assignment then return (assignment!e) else getSample
+        func m _ = do
+            a <- bnSample bn
+            if isConsistent a
+                then let x = a!e
+                     in return $! x `seq` M.adjust (+1) x m
+                else return m
+
+        initial = M.fromList [(True,0),(False,0)]
 
         isConsistent a = map (a!) vars == vals
 
@@ -195,7 +200,6 @@ rejectionAsk nIter bn fixed e =
 --  weight gives the likelihood of the fixed evidence, given the sample.
 weightedSample :: Ord e => BayesNet e -> [(e,Bool)] -> IO (Map e Bool, Prob)
 weightedSample bn fixed =
-    {-# SCC "weightedSample" #-}
     go 1.0 (M.fromList fixed) (bnVars bn)
     where
         go w assignment []     = return (assignment, w)
@@ -214,17 +218,17 @@ weightedSample bn fixed =
 --  probabilities from a Bayes Net.
 likelihoodWeighting :: Ord e => Int -> BayesNet e -> [(e,Bool)] -> e -> IO (Dist Bool)
 likelihoodWeighting nIter bn fixed e = 
-    {-# SCC "likelihoodWeighting" #-}
-    sequence (replicate nIter getSample) >>= return . distribution
+    foldM func initial [1..nIter] >>= distribution
 
     where
-        getSample    =
-            {-# SCC "getSampleLW" #-}
-            weightedSample bn fixed >>= \(a, w) -> return (a ! e, w)
+        func m _ = do
+            (a, w) <- weightedSample bn fixed
+            let x = a ! e
+            return $! x `seq` w `seq` M.adjust (+w) x m
 
-        distribution =
-            {-# SCC "distributionLW" #-}
-            normalize . D . M.toList . M.fromListWith (+)
+        initial = M.fromList [(True,0),(False,0)]
+
+        distribution = return . normalize . D . M.toList
 
 -------------------------
 -- Bayes Net Utilities --
@@ -234,15 +238,15 @@ likelihoodWeighting nIter bn fixed e =
 --  of the variable's parents in the assignment, in the order that they are
 --  specified in the Bayes Net.
 bnVals :: Ord e => BayesNet e -> Map e Bool -> e -> [Bool]
-bnVals bn a x = {-# SCC "bnVals" #-} map (a!) (bnParents bn x)
+bnVals bn a x = map (a!) (bnParents bn x)
 
 -- |Return the parents of a specified variable in a Bayes Net.
 bnParents :: Ord e => BayesNet e -> e -> [e]
-bnParents (BayesNet _ m) x = {-# SCC "bnParents" #-} nodeParents (m ! x)
+bnParents (BayesNet _ m) x = nodeParents (m ! x)
 
 -- |Return the conditional probability table of a variable in a Bayes Net.
 bnCond :: Ord e => BayesNet e -> e -> [Prob]
-bnCond (BayesNet _ m) x = {-# SCC "bnCond" #-} nodeCond (m ! x)
+bnCond (BayesNet _ m) x = nodeCond (m ! x)
 
 -- |Given a set of assignments and a (variable,value) pair, this function
 --  returns the probability that the variable has that value, given the
@@ -250,11 +254,11 @@ bnCond (BayesNet _ m) x = {-# SCC "bnCond" #-} nodeCond (m ! x)
 --  (this is why it is important to perform the enumeration of variables from
 --  parents to children).
 bnProb :: Ord e => BayesNet e -> Map e Bool -> (e, Bool) -> Prob
-bnProb bn a (v,b) = {-# SCC "bnProb" #-} if b then p else 1 - p
+bnProb bn a (v,b) = if b then p else 1 - p
     where p = bnCond bn v !! bnSubRef (bnVals bn a v)
 
 -- |A helper function for 'bnProb'. Given a list of parent values, this returns
 --  the correct index for a probability to be extracted from the conditional
 --  probability table associated with a variable.
 bnSubRef :: [Bool] -> Int
-bnSubRef = {-# SCC "bnSubRef" #-} ndSubRef . map (\x -> if x then 0 else 1)
+bnSubRef = ndSubRef . map (\x -> if x then 0 else 1)
