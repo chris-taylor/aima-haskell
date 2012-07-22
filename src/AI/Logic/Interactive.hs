@@ -10,6 +10,20 @@ import AI.Logic.Core
 import AI.Logic.Propositional
 import AI.Util.Util
 
+-----------
+-- Types --
+-----------
+
+type IOThrowsError = ErrorT LogicError IO
+type Logic k       = StateT k IOThrowsError
+
+-- |Run a computation of type `Logic k'. The computation represents a live
+--  interaction with a knowledge base. We don't care about the result - we
+--  just want to get the side effects from storing premises in the knowledge
+--  base and querying it for new information.
+runLogic :: Logic k a -> k -> IO ()
+runLogic c s = ignoreResult $ runErrorT $ evalStateT c s
+
 ----------------------
 -- Interactive Code --
 ----------------------
@@ -23,10 +37,17 @@ runProp = do
 
 -- |Start an interaction with a propositional logic theorem prover that uses
 --  truth tables to do inference.
-runTT :: IO ()
-runTT = do
+runTruthTable :: IO ()
+runTruthTable = do
     putStrLn "Propositional Logic Truth Table Theorem Prover"
-    runLogic loop (empty :: PropTTKB PLExpr)
+    runLogic loop (empty :: TruthTableKB PLExpr)
+
+-- |Start an interaction with a theorem prover that uses Horn clause and forward
+--  chaining to do inference.
+runForwardChaining :: IO ()
+runForwardChaining = do
+    putStrLn "Proposition Logic Forward Chaining Theorem Prover"
+    runLogic loop (empty :: DefClauseKB DefiniteClause)
 
 -- |The input/output loop for a theorem prover. We repeatedly ask for input
 --  from the user, and then dispatch on the result, until the user enters the

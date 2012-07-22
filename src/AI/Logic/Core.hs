@@ -11,19 +11,13 @@ import AI.Util.Util
 -- Data Types --
 ----------------
 
-data LogicError    = ParseError | UnknownCommand | DefaultError deriving (Show)
 type ThrowsError   = Either LogicError
-type IOThrowsError = ErrorT LogicError IO
-type Logic k       = StateT k IOThrowsError
+data LogicError    = ParseError
+                   | InvalidExpression
+                   | UnknownCommand
+                   | DefaultError deriving (Show)
 
 instance Error LogicError where noMsg = DefaultError
-
--- |Run a computation of type `Logic k'. The computation represents a live
---  interaction with a knowledge base. We don't care about the result - we
---  just want to get the side effects from storing premises in the knowledge
---  base and querying it for new information.
-runLogic :: (Error e, Monad m) => StateT s (ErrorT e m) a -> s -> m ()
-runLogic c s = ignoreResult $ runErrorT $ evalStateT c s
 
 -----------------
 -- Expressions --

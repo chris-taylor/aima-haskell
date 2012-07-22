@@ -40,6 +40,7 @@ Library
                         AI.Search.Example.MapColoring
                         AI.Search.Example.Sudoku
                         AI.Logic.Core
+                        AI.Logic.Interactive
                         AI.Logic.Propositional
                         AI.Logic.FOL
                         AI.Probability.Bayes

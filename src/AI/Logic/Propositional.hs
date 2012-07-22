@@ -42,9 +42,12 @@ instance Show PLExpr where
 
 -- |Expressions in propositional logic can be parsed using 'parsePL'.
 instance Expr PLExpr where
-    parseExpr str = case parsePL str of
-        Nothing -> throwError ParseError
-        Just e  -> return e
+    parseExpr = parsePL
+
+-- |Horn clauses can be parsed using 'parsePL', and they must also successfully
+--  be converted by 'toDefiniteClause'.
+instance Expr DefiniteClause where
+    parseExpr str = parsePL str >>= toDefiniteClause
 
 ---------------------
 -- Knowledge Bases --
@@ -60,20 +63,29 @@ instance KB PropKB PLExpr where
     empty                  = PropKB []
     tell     (PropKB ps) p = PropKB $ ps ++ conjuncts (toCnf p)
     retract  (PropKB ps) p = PropKB $ L.delete p ps
-    ask      (PropKB ps) q = plResolution (And ps) q
+    ask      (PropKB ps) p = plResolution (And ps) p
     axioms   (PropKB ps)   = ps
 
 -- |Concrete instance of a propositional logic knowledge base that will use
 --  truth tables for inference.
-data PropTTKB p = PropTTKB [PLExpr]
+data TruthTableKB p = TT [PLExpr]
 
 -- |The 'KB' instance for a knowledge base that uses truth tables for inference.
-instance KB PropTTKB PLExpr where
-    empty                    = PropTTKB []
-    tell     (PropTTKB ps) p = PropTTKB $ ps ++ conjuncts (toCnf p)
-    retract  (PropTTKB ps) p = PropTTKB $ L.delete p ps
-    ask      (PropTTKB ps) q = ttEntails (And ps) q
-    axioms   (PropTTKB ps)   = ps
+instance KB TruthTableKB PLExpr where
+    empty              = TT []
+    tell     (TT ps) p = TT $ ps ++ conjuncts (toCnf p)
+    retract  (TT ps) p = TT $ L.delete p ps
+    ask      (TT ps) p = ttEntails (And ps) p
+    axioms   (TT ps)   = ps
+
+data DefClauseKB p = DC [DefiniteClause]
+
+instance KB DefClauseKB DefiniteClause where
+    empty             = DC []
+    tell    (DC cs) c = DC $ cs ++ [c]
+    retract (DC cs) c = DC $ L.delete c cs
+    ask     (DC cs) c = undefined
+    axioms  (DC cs)   = cs 
 
 -----------------------------------
 -- Propositional Logic Utilities --
@@ -282,43 +294,49 @@ plResolve p q =
             [] -> Val False
             xs -> Or xs
 
-----------------------
--- Definite Clauses --
-----------------------
+------------------
+-- Horn Clauses --
+------------------
 
--- |Return 'True' if an expression in propositional logic is a literal, i.e. if
---  it is a symbol, or the negation of a symbol.
-isLiteral :: PLExpr -> Bool
-isLiteral (Not p) = isAtom p
-isLiteral p       = isAtom p
+data Symbol = Lit Bool
+            | Sym String deriving (Eq)
 
--- |Return 'True' if a literal expression in propositional logic is positive,
---  i.e. it is not a negation.
-isPositive :: PLExpr -> Bool
-isPositive (Not p) = False
-isPositive _       = True
+data DefiniteClause = DefiniteClause { dcBody :: [Symbol]
+                                     , dcHead :: Symbol } deriving (Eq)
 
--- |Return 'True' if an expression in propositional logic is a definite clause,
---  i.e. if it is a disjunction of literals, exactly one of which is positive.
-isDefiniteClause :: PLExpr -> Bool
-isDefiniteClause expr = all isLiteral xs && countIf isPositive xs == 1
-    where xs = disjuncts expr
+instance Show Symbol where
+    show (Lit True)  = "T"
+    show (Lit False) = "F"
+    show (Sym p)     = p
 
--- |Return 'True' if an expresssion in propositional logic is a Horn clause,
---  i.e. if it is at disjunction of literals, at most one of which is positive.
-isHornClause :: PLExpr -> Bool
-isHornClause expr = all isLiteral xs && countIf isPositive xs < 2
-    where xs = disjuncts expr
+instance Show DefiniteClause where
+    show (DefiniteClause []   hd) = show hd 
+    show (DefiniteClause body hd) =
+        (concat $ L.intersperse " & " $ map show body) ++ " => " ++ show hd
+
+toDefiniteClause :: PLExpr -> ThrowsError DefiniteClause
+toDefiniteClause (Val x) = return $ DefiniteClause [] (Lit x)
+toDefiniteClause (Var x) = return $ DefiniteClause [] (Sym x)
+toDefiniteClause (p `Implies` q) = if all isAtom xs && isAtom q
+    then return $ DefiniteClause (map toSym xs) (toSym q)
+    else throwError InvalidExpression
+        where xs = conjuncts p
+toDefiniteClause _ = throwError InvalidExpression
+
+toSym :: PLExpr -> Symbol
+toSym (Val x) = Lit x
+toSym (Var x) = Sym x
+toSym _       = error "Not an atom -- AI.Logic.Propositional.toSym"
 
 --------------------------------
 -- Propositional Logic Parser --
 --------------------------------
 
 -- |Parse a 'String' as an expression in propositional logic.
-parsePL :: String -> Maybe PLExpr
+parsePL :: String -> ThrowsError PLExpr
 parsePL input = case parse expr "" input of
-    Left _  -> Nothing
-    Right x -> return x
+    Left _  -> throwError ParseError
+    Right x -> return (associate x)
 
 expr :: Parser PLExpr
 expr = buildExpressionParser table term <?> "expression"
