@@ -46,7 +46,6 @@
 - Propositional logic:
   - Local search for SAT
 - First-order logic:
-  - Parser for logical expressions
   - Theorem prover routines
   - Reduction to normal form
 
