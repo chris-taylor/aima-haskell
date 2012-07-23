@@ -150,11 +150,11 @@ getList _          = error "Not a list -- AI.Logic.FOL.getList"
 
 getLength :: UnificationExpr -> Int
 getLength (UList xs) = length xs
-getLength _          = error "Not a list -- AI.Logic.FOL.getHead"
+getLength _          = error "Not a list -- AI.Logic.FOL.getLength"
 
 getHd :: UnificationExpr -> UnificationExpr
 getHd (UList xs) = head xs
-getHd _          = error "Not a list -- AI.Logic.FOL.getHead"
+getHd _          = error "Not a list -- AI.Logic.FOL.getHd"
 
 getRest :: UnificationExpr -> UnificationExpr
 getRest (UList xs) = UList (tail xs)

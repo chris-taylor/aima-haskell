@@ -86,7 +86,9 @@ instance KB DefClauseKB DefiniteClause where
     empty             = DC []
     tell    (DC cs) c = DC $ cs ++ [c]
     retract (DC cs) c = DC $ L.delete c cs
-    ask     (DC cs) c = fcEntails cs (conclusion c)
+    ask     (DC cs) c = if isFact c
+        then fcEntails cs (conclusion c)
+        else False
     axioms  (DC cs)   = cs 
 
 -----------------------------------
@@ -296,9 +298,9 @@ plResolve p q =
             [] -> Val False
             xs -> Or xs
 
-------------------
--- Horn Clauses --
-------------------
+----------------------
+-- Definite Clauses --
+----------------------
 
 type Symbol = String
 
@@ -346,18 +348,18 @@ fcEntails kb q = go initialCount [] (facts kb)
                     else go count' (p:inferred) agenda'
                         where (count', agenda') = run kb p count ps
 
-        run []     p cnt ag = (cnt, ag)
-        run (c:cs) p cnt ag = if not (p `elem` premises c)
-            then run cs p cnt ag
+        run []     p count agenda = (count, agenda)
+        run (c:cs) p count agenda = if not (p `elem` premises c)
+            then run cs p count agenda
             else if n == 1
-                    then run cs p cnt' (conclusion c:ag)
-                    else run cs p cnt' ag
+                    then run cs p count' (conclusion c:agenda)
+                    else run cs p count' agenda
             where
-                n    = cnt ! c
-                cnt' = M.insert c (n-1) cnt
+                n    = count ! c
+                count' = M.insert c (n-1) count
 
         initialCount = foldr f M.empty kb
-            where f c cnt = M.insert c (length $ premises c) cnt
+            where f c count = M.insert c (length $ premises c) count
 
 --------------------------------
 -- Propositional Logic Parser --
