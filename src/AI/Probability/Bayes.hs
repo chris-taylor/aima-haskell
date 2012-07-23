@@ -50,13 +50,15 @@ data BayesNet e = BayesNet { bnVars :: [e]
 fromList :: Ord e => [ (e, [e], [Prob]) ] -> BayesNet e
 fromList xs = BayesNet vars net
     where
-        vars = L.sortBy (comparing rank) (M.keys net)
-
         net  = foldr go M.empty xs
 
         go (ev,ps,cond) = if length cond /= 2 ^ length ps
             then error "Invalid length for probability table"
             else M.insert ev (Node ps cond)
+
+        putChildren net = foldr go net 
+
+        vars = L.sortBy (comparing rank) (M.keys net)
 
         rank e = if null ps then 0 else 1 + maximum (map rank ps)
             where ps = nodeParents (net ! e)
@@ -213,7 +215,7 @@ weightedSample bn fixed = go 1.0 (M.fromList fixed) (bnVars bn)
             else do
                 let !p = bnProb bn assignment (v,True)
                 x <- probabilityIO p
-                let !assignment' = M.insert v s assignment
+                let !assignment' = M.insert v x assignment
                 go w assignment' vs
 
         vars = map fst fixed

@@ -44,7 +44,9 @@
 ## Logic
 
 - Propositional logic:
+  - Truth-table SAT
   - Local search for SAT
+  - Backward chaining
 - First-order logic:
   - Theorem prover routines
   - Reduction to normal form
@@ -54,3 +56,6 @@
 - Flesh out functionality for MDPs.
 - Partially observed MDPs
 - Bayes Net uses lists rather than arrays to store the conditional probability table. This is probably inefficient - profile it and check!
+- Markov chain (Gibbs sampling) routines for Bayes Net
+- Function to compute children of a node in a Bayes Net
+- Function to compute markov blanket of a node in a Bayes Net
