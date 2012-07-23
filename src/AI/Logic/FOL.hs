@@ -52,6 +52,14 @@ instance Expr FOLExpr where
         Nothing -> throwError ParseError
         Just e  -> return e
 
+conjuncts :: FOLExpr -> [FOLExpr]
+conjuncts (And ps) = ps
+conjuncts e        = [e]
+
+isPred :: FOLExpr -> Bool
+isPred (Pred _ _) = True
+isPred _          = False
+
 -----------------
 -- Unification --
 -----------------
@@ -95,6 +103,36 @@ occurCheck var x
     | isExpr x  = occurCheck var (getArgs x)
     | isList x  = any (occurCheck var) (getList x)
     | otherwise = False
+
+----------------------
+-- Definite Clauses --
+----------------------
+
+data Statement = Statement { symbol :: String
+                           , args :: [Term] }
+
+data DefiniteClause = DC { premises :: [Statement]
+                         , conclusion :: Statement }
+
+instance Show Statement where
+    show (Statement sym []  ) = sym
+    show (Statement sym args) = sym ++ "(" ++ commaSep (map show args) ++  ")"
+
+instance Show DefiniteClause where
+    show (DC []    conc) = show conc
+    show (DC prems conc) =
+        concat (L.intersperse " & " $ map show prems) ++ " => " ++ show conc
+
+toStatement :: FOLExpr -> Statement
+toStatement (Pred sym args) = Statement sym args
+
+toDefiniteClause :: FOLExpr -> ThrowsError DefiniteClause
+toDefiniteClause (Pred sym args) = return $ DC [] (Statement sym args)
+toDefiniteClause (Implies p q)   = if all isPred xs && isPred q
+    then return $ DC (map toStatement xs) (toStatement q)
+    else throwError InvalidExpression
+    where
+        xs = conjuncts p
 
 ----------------------------------
 -- Unification Helper Functions --
