@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module AI.Probability.Bayes
     ( BayesNet
     , fromList
@@ -169,9 +171,10 @@ bnSample bn = go M.empty (bnVars bn)
     where
         go assignment []     = return assignment
         go assignment (v:vs) = do
-            let p = bnProb bn assignment (v,True)
+            let !p = bnProb bn assignment (v,True)
             x <- probabilityIO p
-            go (M.insert v x assignment) vs
+            let !assignment' = M.insert v x assignment
+            go assignment' vs
 
 -- |Rejection sampling algorithm. Repeatedly samples from a Bayes Net and
 --  discards samples that do not match the evidence, and builds a probability
@@ -184,8 +187,7 @@ rejectionSample nIter bn fixed e =
         func m _ = do
             a <- bnSample bn
             if isConsistent a
-                then let x = a!e
-                     in return $! x `seq` M.adjust (+1) x m
+                then let x = a!e in return (M.insertWith' (+) x 1 m)
                 else return m
 
         initial = M.fromList [(True,0),(False,0)]
@@ -201,18 +203,18 @@ rejectionSample nIter bn fixed e =
 -- |Random sample from a Bayes Net, with an associated likelihood weight. The
 --  weight gives the likelihood of the fixed evidence, given the sample.
 weightedSample :: Ord e => BayesNet e -> [(e,Bool)] -> IO (Map e Bool, Prob)
-weightedSample bn fixed =
-    go 1.0 (M.fromList fixed) (bnVars bn)
+weightedSample bn fixed = go 1.0 (M.fromList fixed) (bnVars bn)
     where
         go w assignment []     = return (assignment, w)
         go w assignment (v:vs) = if v `elem` vars
             then
-                let w' = w * bnProb bn assignment (v, fixed %! v)
+                let !w' = w * bnProb bn assignment (v, fixed %! v)
                 in go w' assignment vs
             else do
-                let p = bnProb bn assignment (v,True)
+                let !p = bnProb bn assignment (v,True)
                 x <- probabilityIO p
-                go w (M.insert v x assignment) vs
+                let !assignment' = M.insert v s assignment
+                go w assignment' vs
 
         vars = map fst fixed
 
@@ -226,7 +228,7 @@ likelihoodWeighting nIter bn fixed e =
         func m _ = do
             (a, w) <- weightedSample bn fixed
             let x = a ! e
-            return $! x `seq` w `seq` M.adjust (+w) x m
+            return (M.insertWith' (+) x w m)
 
         initial = M.fromList [(True,0),(False,0)]
 
