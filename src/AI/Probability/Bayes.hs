@@ -56,8 +56,6 @@ fromList xs = BayesNet vars net
             then error "Invalid length for probability table"
             else M.insert ev (Node ps cond)
 
-        putChildren net = foldr go net 
-
         vars = L.sortBy (comparing rank) (M.keys net)
 
         rank e = if null ps then 0 else 1 + maximum (map rank ps)
