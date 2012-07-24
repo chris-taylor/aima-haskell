@@ -1,5 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
+-- |This module defines types and type classes that are used in the other Logic
+--  modules. 
 module AI.Logic.Core where
 
 import Control.Monad.Error
@@ -12,6 +14,7 @@ import AI.Util.Util
 ----------------
 
 type ThrowsError   = Either LogicError
+
 data LogicError    = ParseError
                    | InvalidExpression
                    | UnknownCommand
@@ -35,7 +38,8 @@ class (Show p, Eq p) => Expr p where
 
 -- |A class for knowledge bases, supporting operations 'tell' (to tell a new
 --  fact), 'ask' (to query the knowledge base) and 'retract' (to un-tell a
---  fact). You should create instances of this specific to your application.
+--  fact). Instances of 'KB' are used in routines in the @Logic.Interative@
+--  package.
 class Expr p => KB k p where
     -- |Returns an empty knowledge base.
     empty :: k p

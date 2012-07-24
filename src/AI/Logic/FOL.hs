@@ -2,6 +2,8 @@ module AI.Logic.FOL where
 
 import Control.Monad.Error
 import Data.Map (Map, (!))
+import Data.Unique
+import System.IO.Unsafe
 import Text.ParserCombinators.Parsec
 import Text.Parsec.Char
 import Text.Parsec.Expr
@@ -59,6 +61,11 @@ conjuncts e        = [e]
 isPred :: FOLExpr -> Bool
 isPred (Pred _ _) = True
 isPred _          = False
+
+termVars :: Term -> [String]
+termVars (Var x) = [x]
+termVars (Sym _) = [ ]
+termVars (Func _ args) = L.nub (concatMap termVars args)
 
 -----------------
 -- Unification --
@@ -134,12 +141,43 @@ toDefiniteClause (Implies p q)   = if all isPred xs && isPred q
     where
         xs = conjuncts p
 
+toExpr :: DefiniteClause -> FOLExpr
+toExpr (DC [] c) = statementToExpr c
+toExpr (DC ps c) = And (map statementToExpr ps) `Implies` statementToExpr c
+
+statementToExpr :: Statement -> FOLExpr
+statementToExpr s = Pred (symbol s) (args s)
+
+clauseVars :: DefiniteClause -> [String]
+clauseVars (DC prems conc) =
+    L.nub $ concatMap statementVars prems ++ statementVars conc
+
+statementVars :: Statement -> [String]
+statementVars (Statement _ args) = L.nub $ concatMap termVars args
+
+subst :: DefiniteClause -> Map String Term -> DefiniteClause
+subst (DC ps c) m = DC (map renameS ps) (renameS c)
+    where
+        renameS (Statement sym args) = Statement sym (map renameT args)
+
+        renameT (Var x) = m!x
+        renameT (Sym x) = Sym x
+        renameT (Func x args) = Func x (map renameT args)
+
 ----------------------
 -- Forward Chaining --
 ----------------------
 
-fc :: [DefiniteClause] -> Statement -> Maybe (Map String Term)
-fc kb query = undefined
+standardizeApart :: DefiniteClause -> IO DefiniteClause
+standardizeApart dc = uniqify (clauseVars dc) >>= return . subst dc
+
+uniqify :: [String] -> IO (Map String Term)
+uniqify = foldM func M.empty
+    where func m s = do s' <- mkUnique s
+                        return $ M.insert s (Var s') m
+
+mkUnique :: String -> IO String
+mkUnique s = newUnique >>= \n -> return (':' : s ++ show (hashUnique n))
 
 ----------------------------------
 -- Unification Helper Functions --
