@@ -134,6 +134,13 @@ toDefiniteClause (Implies p q)   = if all isPred xs && isPred q
     where
         xs = conjuncts p
 
+----------------------
+-- Forward Chaining --
+----------------------
+
+fc :: [DefiniteClause] -> Statement -> Maybe (Map String Term)
+fc kb query = undefined
+
 ----------------------------------
 -- Unification Helper Functions --
 ----------------------------------
