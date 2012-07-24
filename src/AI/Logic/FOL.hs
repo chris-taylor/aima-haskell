@@ -116,10 +116,10 @@ occurCheck var x
 ----------------------
 
 data Statement = Statement { symbol :: String
-                           , args :: [Term] }
+                           , args :: [Term] } deriving (Eq)
 
 data DefiniteClause = DC { premises :: [Statement]
-                         , conclusion :: Statement }
+                         , conclusion :: Statement } deriving (Eq)
 
 instance Show Statement where
     show (Statement sym []  ) = sym
@@ -129,6 +129,15 @@ instance Show DefiniteClause where
     show (DC []    conc) = show conc
     show (DC prems conc) =
         concat (L.intersperse " & " $ map show prems) ++ " => " ++ show conc
+
+isFact :: DefiniteClause -> Bool
+isFact = null . premises
+
+toFact :: Statement -> DefiniteClause
+toFact s = DC [] s
+
+facts :: [DefiniteClause] -> [DefiniteClause]
+facts = filter isFact
 
 toStatement :: FOLExpr -> Statement
 toStatement (Pred sym args) = Statement sym args
@@ -164,8 +173,43 @@ subst (DC ps c) m = DC (map renameS ps) (renameS c)
         renameT (Sym x) = Sym x
         renameT (Func x args) = Func x (map renameT args)
 
+stUnify :: DefiniteClause -> DefiniteClause -> Maybe (Map String Term)
+stUnify s1 s2 = unify (toExpr s1) (toExpr s2)
+
 ----------------------
 -- Forward Chaining --
+----------------------
+
+fc :: [DefiniteClause] -> Statement -> Maybe (Map String Term)
+fc kb a = unsafePerformIO (run kb)
+    where
+        run (r:rs) = do
+            DC ps q <- standardizeApart r
+
+            let subs          = getMatchingSubs ps (L.delete r kb)
+                (result, new) = apply q [] Nothing subs
+
+            if no result
+                then if null new
+                        then return Nothing
+                        else run (kb ++ new)
+                else return result 
+        
+        apply _ new (Just phi) _      = (Just phi, new)         
+        apply _ new _          []     = (Nothing, new)
+        apply q new _          (t:ts) = if isRenaming q (kb ++ new)
+            then apply q new Nothing ts
+            else apply q (q':new) (stUnify q' $ toFact a) ts
+            where q' = subst (toFact q) t
+
+isRenaming :: Statement -> [DefiniteClause] -> Bool
+isRenaming s kb = undefined
+
+getMatchingSubs :: [Statement] -> [DefiniteClause] -> [Map String Term]
+getMatchingSubs ps kb = undefined
+
+----------------------
+-- Rename Variables --
 ----------------------
 
 standardizeApart :: DefiniteClause -> IO DefiniteClause
