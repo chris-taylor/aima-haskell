@@ -2,6 +2,7 @@ module AI.Logic.FOL where
 
 import Control.Monad.Error
 import Data.Map (Map, (!))
+import Data.Maybe (catMaybes)
 import Data.Unique
 import System.IO.Unsafe
 import Text.ParserCombinators.Parsec
@@ -21,7 +22,7 @@ import AI.Util.Util
 data Term = Var String
           | Sym String
           | Func String [Term]
-          deriving (Eq)
+          deriving (Eq,Ord)
 
 data FOLExpr = Val Bool
              | Pred String [Term]
@@ -31,7 +32,7 @@ data FOLExpr = Val Bool
              | Implies FOLExpr FOLExpr
              | ForAll String FOLExpr
              | Exists String FOLExpr
-             deriving (Eq)
+             deriving (Eq,Ord)
 
 instance Show Term where
     show (Var x)     = x
@@ -50,9 +51,10 @@ instance Show FOLExpr where
     show (Pred p xs)   = p ++ "(" ++ commaSep (map show xs) ++  ")"
 
 instance Expr FOLExpr where
-    parseExpr str = case parseFOL str of
-        Nothing -> throwError ParseError
-        Just e  -> return e
+    parseExpr = parseFOL
+
+instance Expr DefiniteClause where
+    parseExpr str = parseFOL str >>= toDefiniteClause
 
 conjuncts :: FOLExpr -> [FOLExpr]
 conjuncts (And ps) = ps
@@ -136,8 +138,8 @@ isFact = null . premises
 toFact :: Statement -> DefiniteClause
 toFact s = DC [] s
 
-facts :: [DefiniteClause] -> [DefiniteClause]
-facts = filter isFact
+facts :: [DefiniteClause] -> [Statement]
+facts = map conclusion . filter isFact
 
 toStatement :: FOLExpr -> Statement
 toStatement (Pred sym args) = Statement sym args
@@ -173,40 +175,44 @@ subst (DC ps c) m = DC (map renameS ps) (renameS c)
         renameT (Sym x) = Sym x
         renameT (Func x args) = Func x (map renameT args)
 
-stUnify :: DefiniteClause -> DefiniteClause -> Maybe (Map String Term)
-stUnify s1 s2 = unify (toExpr s1) (toExpr s2)
+stUnify :: [Statement] -> [Statement] -> Maybe (Map String Term)
+stUnify s1 s2 = unify (expr s1) (expr s2)
+    where
+        expr s = And $ L.sort $ map (toExpr . toFact) s
 
 ----------------------
 -- Forward Chaining --
 ----------------------
 
 fc :: [DefiniteClause] -> Statement -> Maybe (Map String Term)
-fc kb a = unsafePerformIO (run kb)
+fc kb a = unsafePerformIO (run kb kb)
     where
-        run (r:rs) = do
+        run kb (r:rs) = do
             DC ps q <- standardizeApart r
 
-            let subs          = getMatchingSubs ps (L.delete r kb)
-                (result, new) = apply q [] Nothing subs
+            let subs          = getMatchingSubs ps (facts kb)
+                (result, new) = apply q kb [] Nothing subs
 
             if no result
                 then if null new
                         then return Nothing
-                        else run (kb ++ new)
+                        else run (kb ++ new) (kb ++ new)
                 else return result 
         
-        apply _ new (Just phi) _      = (Just phi, new)         
-        apply _ new _          []     = (Nothing, new)
-        apply q new _          (t:ts) = if isRenaming q (kb ++ new)
-            then apply q new Nothing ts
-            else apply q (q':new) (stUnify q' $ toFact a) ts
+        apply _ kb new (Just phi) _      = (Just phi, new)         
+        apply _ kb new _          []     = (Nothing, new)
+        apply q kb new _          (t:ts) = if isRenaming q (facts $ kb ++ new)
+            then apply q kb new Nothing ts
+            else apply q kb (q':new) (stUnify [conclusion q'] [a]) ts
             where q' = subst (toFact q) t
 
-isRenaming :: Statement -> [DefiniteClause] -> Bool
-isRenaming s kb = undefined
+isRenaming :: Statement -> [Statement] -> Bool
+isRenaming s kb = notNull $ catMaybes $ map (stUnify [s]) (map return kb)
 
-getMatchingSubs :: [Statement] -> [DefiniteClause] -> [Map String Term]
-getMatchingSubs ps kb = undefined
+getMatchingSubs :: [Statement] -> [Statement] -> [Map String Term]
+getMatchingSubs ps kb = catMaybes $ map (stUnify ps) (subsets kb)
+          
+
 
 ----------------------
 -- Rename Variables --
@@ -287,25 +293,48 @@ getRest :: UnificationExpr -> UnificationExpr
 getRest (UList xs) = UList (tail xs)
 getRest _          = error "Not a list -- AI.Logic.FOL.getRest"
 
+---------------------
+-- Associate Exprs --
+---------------------
+
+-- |Exploit the associative and commutative rules for conjunction and
+--  disjunction to simplify statements in first-order logic. This function is
+--  called after parsing a statement. The purpose is to simplify the unification
+--  algorithm by ensuring that all arguments to an 'And' or 'Or' statement
+--  appear in a consistent order, and avoid having to write a more complicated
+--  AC- or ACU-unification routine.
+associate :: FOLExpr -> FOLExpr
+associate (And ps) = And $ L.sort $ foldr f [] (map associate ps)
+    where f (And xs) ys = xs ++ ys
+          f expr ys     = expr : ys
+associate (Or ps)  = Or  $ L.sort $ foldr f [] (map associate ps)
+    where f (Or xs) ys = xs ++ ys
+          f expr ys    = expr : ys
+associate (Not p)       = Not (associate p)
+associate (Implies p q) = Implies (associate p) (associate q)
+associate (ForAll x p)  = ForAll x (associate p)
+associate (Exists x p)  = Exists x (associate p)
+associate expr          = expr
+
 ------------------------------
 -- First-Order Logic Parser --
 ------------------------------
 
-parseFOL :: String -> Maybe FOLExpr
+parseFOL :: String -> ThrowsError FOLExpr
 parseFOL input = case parse expr "" input of
-    Left _  -> Nothing
-    Right x -> return x
+    Left _  -> Left ParseError
+    Right x -> return (associate x)
 
 expr :: Parser FOLExpr
 expr = buildExpressionParser table term <?> "expression"
 
 term :: Parser FOLExpr
 term = parens expr
-   <|> try parseVal
+   <|> try parseForAll
+   <|> try parseExists
    <|> try parsePred
-   <|> parseForAll
-   <|> parseExists
-   <?> "T, F or expression"
+   <|> parseVal
+   <?> "T, F, Predicate, ForAll or Exists"
 
 parseTerm :: Parser Term
 parseTerm = try parseFunc

@@ -169,6 +169,10 @@ bools n = do
     xs <- bools (n-1)
     return (x:xs)
 
+-- |Return all subsets of a list.
+subsets :: [a] -> [[a]]
+subsets = filterM $ const [True,False]
+
 ------------------
 -- String Utils --
 ------------------
