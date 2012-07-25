@@ -53,7 +53,7 @@ class (Expr p, Show t) => KB k p t where
 
     -- |Given a statement containing variables, return an assignment of
     --  variables to terms that satisfies the statement.
-    askVars :: k p t -> p -> Maybe (Map String t)
+    askVars :: k p t -> p -> [Map String t]
 
     -- |Retract a fact from the knowledge base.
     retract :: k p t -> p -> k p t

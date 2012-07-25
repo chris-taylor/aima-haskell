@@ -61,7 +61,7 @@ data FCKB p t = FCKB [DefiniteClause]
 instance KB FCKB DefiniteClause Term where
     empty               = FCKB []
     tell    (FCKB cs) c = FCKB (cs ++ [c])
-    ask     (FCKB cs) c = not . no $ fc cs (conclusion c)
+    ask     (FCKB cs) c = not . null $ fc cs (conclusion c)
     askVars (FCKB cs) c = fc cs (conclusion c)
     retract (FCKB cs) c = FCKB (L.delete c cs)
     axioms  (FCKB cs)   = cs
@@ -151,6 +151,9 @@ toFact s = DC [] s
 facts :: [DefiniteClause] -> [Statement]
 facts = map conclusion . filter isFact
 
+rules :: [DefiniteClause] -> [DefiniteClause]
+rules = filter (not . isFact)
+
 toStatement :: FOLExpr -> Statement
 toStatement (Pred sym args) = Statement sym args
 
@@ -181,7 +184,9 @@ subst (DC ps c) m = DC (map renameS ps) (renameS c)
     where
         renameS (Statement sym args) = Statement sym (map renameT args)
 
-        renameT (Var x) = m!x
+        renameT (Var x) = case M.lookup x m of
+                            Nothing -> Var x
+                            Just t  -> t
         renameT (Sym x) = Sym x
         renameT (Func x args) = Func x (map renameT args)
 
@@ -194,27 +199,39 @@ stUnify s1 s2 = unify (expr s1) (expr s2)
 -- Forward Chaining --
 ----------------------
 
-fc :: [DefiniteClause] -> Statement -> Maybe (Map String Term)
-fc kb a = unsafePerformIO (run kb kb)
+fc :: [DefiniteClause] -> Statement -> [Map String Term]
+fc kb a = unsafePerformIO $ go (facts kb) (rules kb)
     where
-        run kb (r:rs) = do
-            DC ps q <- standardizeApart r
+        go :: [Statement] -> [DefiniteClause] -> IO [Map String Term]
+        go known rules = do
+            (result, new) <- run known rules
+            if null new
+                then return result
+                else do
+                    (result', new') <- run (known ++ new) rules
+                    return (result' ++ result)
 
-            let subs          = getMatchingSubs ps (facts kb)
-                (result, new) = apply q kb [] Nothing subs
+        run :: [Statement] -> [DefiniteClause] -> IO ([Map String Term], [Statement])
+        run known []          = return ([],[])
+        run known (rule:rest) = do
+            DC ps q <- standardizeApart rule
 
-            if no result
-                then if null new
-                        then return Nothing
-                        else run (kb ++ new) (kb ++ new)
-                else return result 
-        
-        apply _ kb new (Just phi) _      = (Just phi, new)         
-        apply _ kb new _          []     = (Nothing, new)
-        apply q kb new _          (t:ts) = if isRenaming q (facts $ kb ++ new)
-            then apply q kb new Nothing ts
-            else apply q kb (q':new) (stUnify [conclusion q'] [a]) ts
-            where q' = subst (toFact q) t
+            let subs         = getMatchingSubs ps known
+                (res1, new1) = apply q known [] [] subs
+
+            (res2, new2) <- run known rest
+            return (res1++res2, new1++new2)
+
+        apply _ known new result []     = (result, new)
+        apply q known new result (t:ts) = if isRenaming q' (known ++ new)
+            then apply q known new result ts
+            else apply q known new' result' ts
+            where
+                q'      = conclusion (subst (toFact q) t)
+                new'    = q' : new
+                result' = case stUnify [q'] [a] of
+                    Nothing -> result
+                    Just r  -> r:result
 
 isRenaming :: Statement -> [Statement] -> Bool
 isRenaming s kb = notNull $ catMaybes $ map (stUnify [s]) (map return kb)

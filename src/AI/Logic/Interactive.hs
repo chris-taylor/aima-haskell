@@ -103,8 +103,8 @@ satisfyKB expr = do
     kb <- get
     liftIO $ showPremises kb
     case askVars kb expr of
-        Nothing -> liftIO $ putStrLn $ "No assignments satisfy: " ++ show expr
-        Just t  -> liftIO $ putStrLn $ "Assignment: " ++ show t
+        [] -> liftIO $ putStrLn $ "No assignments satisfy: " ++ show expr
+        xs -> liftIO $ putStrLn $ "Assignments: " ++ show xs
 
 -- |Remove a premise from the knowledge base.
 retractKB :: KB k p t => p -> Logic (k p t) ()
