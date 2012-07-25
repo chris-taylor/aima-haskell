@@ -1,8 +1,10 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
-module AI.Util.Table
+-- |This module contains routines for displaying and printing tables of data.
+module AI.Util.Table where
   ( Showable(..)
   , printTable
+  , showTable
   ) where
 
 -- |A Showable is simply a box containing a value which is an instance of 'Show'.
@@ -19,25 +21,32 @@ printTable :: Int           -- ^ Column width
            -> [String]      -- ^ Column names (including the 0th column)
            -> [String]      -- ^ Row names
            -> IO ()
-printTable pad xs header rownames = do
-    let horzLines = replicate (length header) (replicate pad '-')
-    printRow pad '+' horzLines
-    printRow pad '|' header
-    printRow pad '+' horzLines
-    let rows = zipWith (:) rownames (map (map show) xs)
-    mapM_ (printRow pad '|') rows
-    printRow pad '+' horzLines
+printTable pad xs header rownames =
+    mapM_ putStrLn (showTable pad xs header rownames)
 
--- |Print a single row of a table, padding each cell to the required size
---  and inserting the specified separator between columns.
-printRow :: Int -> Char -> [String] -> IO ()
-printRow pad sep xs = do
-    let ys = map (trim pad) xs
-    putChar sep
-    mapM_ printCell ys
-    putStrLn ""
+-- |Return a table as a list of strings, one row per line. This routine is
+--  called by 'printTable'
+showTable :: Int            -- ^ Column width
+          -> [[Showable]]   -- ^ Data
+          -> [String]       -- ^ Column names
+          -> [String]       -- ^ Row names
+          -> [String]
+showTable pad xs header rownames =
+    let dashes = replicate (length header) (replicate pad '-')
+        hzline = showRow pad "+" dashes
+        hdline = showRow pad "|" header
+        rows'  = zipWith (:) rownames (map (map show) xs)
+        rows   = map (showRow pad "|") rows'
+    in [hzline,hdline,hzline] ++ rows ++ [hzline]
+
+-- |Convert a single row of a table to a string, padding each cell so that 
+--  it is of uniform width.
+showRow :: Int -> String -> [String] -> String
+showRow pad sep xs = sep ++ (concatMap showCell cells)
     where
         trim pad str = let n = length str
                            m = max 0 (pad - n)
                         in take pad str ++ replicate m ' '
-        printCell cl = putStr cl >> putChar sep
+        showCell cel = cel ++ sep
+        cells        = map (trim pad) xs
+
