@@ -202,30 +202,28 @@ stUnify s1 s2 = unify (expr s1) (expr s2)
 fc :: [DefiniteClause] -> Statement -> [Map String Term]
 fc kb a = unsafePerformIO $ go (facts kb) (rules kb)
     where
-        go :: [Statement] -> [DefiniteClause] -> IO [Map String Term]
         go known rules = do
-            (result, new) <- run known rules
+            (result, new) <- applyRules known rules
             if null new
                 then return result
                 else do
                     (result', new') <- run (known ++ new) rules
                     return (result' ++ result)
 
-        run :: [Statement] -> [DefiniteClause] -> IO ([Map String Term], [Statement])
-        run known []          = return ([],[])
-        run known (rule:rest) = do
+        applyRules known []          = return ([],[])
+        applyRules known (rule:rest) = do
             DC ps q <- standardizeApart rule
 
-            let subs         = getMatchingSubs ps known
-                (res1, new1) = apply q known [] [] subs
+            let subs         = getSubstitutions ps known
+                (res1, new1) = makeInferences q known [] [] subs
 
-            (res2, new2) <- run known rest
+            (res2, new2) <- applyRules known rest
             return (res1++res2, new1++new2)
 
-        apply _ known new result []     = (result, new)
-        apply q known new result (t:ts) = if isRenaming q' (known ++ new)
-            then apply q known new result ts
-            else apply q known new' result' ts
+        makeInferences _ known new result []     = (result, new)
+        makeInferences q known new result (t:ts) = if isRenaming q' (known ++ new)
+            then makeInferences q known new result ts
+            else makeInferences q known new' result' ts
             where
                 q'      = conclusion (subst (toFact q) t)
                 new'    = q' : new
@@ -236,8 +234,8 @@ fc kb a = unsafePerformIO $ go (facts kb) (rules kb)
 isRenaming :: Statement -> [Statement] -> Bool
 isRenaming s kb = notNull $ catMaybes $ map (stUnify [s]) (map return kb)
 
-getMatchingSubs :: [Statement] -> [Statement] -> [Map String Term]
-getMatchingSubs ps kb = catMaybes $ map (stUnify ps) (subsets kb)
+getSubstitutions :: [Statement] -> [Statement] -> [Map String Term]
+getSubstitutions ps kb = catMaybes $ map (stUnify ps) (subsets kb)
           
 ----------------------
 -- Rename Variables --
