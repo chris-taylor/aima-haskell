@@ -56,6 +56,16 @@ instance Expr FOLExpr where
 instance Expr DefiniteClause where
     parseExpr str = parseFOL str >>= toDefiniteClause
 
+data FCKB p t = FCKB [DefiniteClause]
+
+instance KB FCKB DefiniteClause Term where
+    empty               = FCKB []
+    tell    (FCKB cs) c = FCKB (cs ++ [c])
+    ask     (FCKB cs) c = not . no $ fc cs (conclusion c)
+    askVars (FCKB cs) c = fc cs (conclusion c)
+    retract (FCKB cs) c = FCKB (L.delete c cs)
+    axioms  (FCKB cs)   = cs
+
 conjuncts :: FOLExpr -> [FOLExpr]
 conjuncts (And ps) = ps
 conjuncts e        = [e]
@@ -212,8 +222,6 @@ isRenaming s kb = notNull $ catMaybes $ map (stUnify [s]) (map return kb)
 getMatchingSubs :: [Statement] -> [Statement] -> [Map String Term]
 getMatchingSubs ps kb = catMaybes $ map (stUnify ps) (subsets kb)
           
-
-
 ----------------------
 -- Rename Variables --
 ----------------------

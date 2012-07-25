@@ -57,11 +57,11 @@ instance Expr DefiniteClause where
 
 -- |A simple knowledge base for propositional logic. We keep a list of known
 --  propositions (the axioms) to be used as an inference base.
-data PropKB p = PropKB [PLExpr]
+data PropKB p t = PropKB [PLExpr]
 
 -- |An instance of 'KB' for propositional knowledge bases. It uses the
 --  'plResolution' algorithm to determine if a query is entailed by the KB.
-instance KB PropKB PLExpr where
+instance KB PropKB PLExpr Bool where
     empty                  = PropKB []
     tell     (PropKB ps) p = PropKB $ ps ++ conjuncts (toCnf p)
     retract  (PropKB ps) p = PropKB $ L.delete p ps
@@ -70,19 +70,19 @@ instance KB PropKB PLExpr where
 
 -- |Concrete instance of a propositional logic knowledge base that will use
 --  truth tables for inference.
-data TruthTableKB p = TT [PLExpr]
+data TruthTableKB p t = TT [PLExpr]
 
 -- |The 'KB' instance for a knowledge base that uses truth tables for inference.
-instance KB TruthTableKB PLExpr where
+instance KB TruthTableKB PLExpr Bool where
     empty              = TT []
     tell     (TT ps) p = TT $ ps ++ conjuncts (toCnf p)
     retract  (TT ps) p = TT $ L.delete p ps
     ask      (TT ps) p = ttEntails (And ps) p
     axioms   (TT ps)   = ps
 
-data DefClauseKB p = DC [DefiniteClause]
+data DefClauseKB p t = DC [DefiniteClause]
 
-instance KB DefClauseKB DefiniteClause where
+instance KB DefClauseKB DefiniteClause Bool where
     empty             = DC []
     tell    (DC cs) c = DC $ cs ++ [c]
     retract (DC cs) c = DC $ L.delete c cs
