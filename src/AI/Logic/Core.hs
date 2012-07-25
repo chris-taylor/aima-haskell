@@ -1,8 +1,16 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 -- |This module defines types and type classes that are used in the other Logic
---  modules. 
-module AI.Logic.Core where
+--  modules.
+module AI.Logic.Core (
+    -- * Expression
+      Expr(..)
+    -- * Knowledge Base
+    , KB(..)
+    -- * Error Handling
+    , ThrowsError
+    , LogicError(..)
+    ) where
 
 import Control.Monad.Error
 import Control.Monad.State

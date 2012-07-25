@@ -207,7 +207,7 @@ fc kb a = unsafePerformIO $ go (facts kb) (rules kb)
             if null new
                 then return result
                 else do
-                    (result', new') <- run (known ++ new) rules
+                    (result', new') <- applyRules (known ++ new) rules
                     return (result' ++ result)
 
         applyRules known []          = return ([],[])
