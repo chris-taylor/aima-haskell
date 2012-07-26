@@ -14,7 +14,6 @@
 ## Utils
 
 - Extensions to table-generating code. For example:
-  - Produce a table as a string.
   - Write tables to arbitrary handles.
   - More customisable table layout.
   - Use an external library?
@@ -59,3 +58,11 @@
 - Markov chain (Gibbs sampling) routines for Bayes Net
 - Function to compute children of a node in a Bayes Net
 - Function to compute markov blanket of a node in a Bayes Net
+
+## Learning
+
+- Continue work on decision tree learning
+- Pruning routines
+- Code to test decision trees against a test set
+- Code to automatically fit a (pruned) decision tree
+- Cross-validation
