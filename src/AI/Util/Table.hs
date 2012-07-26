@@ -1,7 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
 -- |This module contains routines for displaying and printing tables of data.
-module AI.Util.Table where
+module AI.Util.Table
   ( Showable(..)
   , printTable
   , showTable
