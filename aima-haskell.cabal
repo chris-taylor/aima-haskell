@@ -22,7 +22,7 @@ Source-Repository head
     Location:       git://github.com/chris-taylor/aima-haskell.git
 
 Library
-    Build-Depends:      base >= 2, containers, random, stm, deepseq, mtl, text, parsec, MonadRandom
+    Build-Depends:      base >= 2, containers, random, stm, deepseq, mtl, text, parsec, MonadRandom, array
     Extensions:         MultiParamTypeClasses
     Hs-Source-Dirs:     src
     Exposed-Modules:    AI.Core.Agents
@@ -47,8 +47,12 @@ Library
                         AI.Probability.MDP
                         AI.Probability.Example.Alarm
                         AI.Probability.Example.Grass
+                        AI.Learning.DecisionTree
+                        AI.Learning.Example.Students
+                        AI.Learning.Example.Restaurant
                         AI.Util.Array
                         AI.Util.Graph
+                        AI.Util.Matrix
                         AI.Util.ProbDist
                         AI.Util.Queue
                         AI.Util.Table
