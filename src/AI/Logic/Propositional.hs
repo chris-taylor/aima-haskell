@@ -66,6 +66,7 @@ instance KB PropKB PLExpr Bool where
     tell     (PropKB ps) p = PropKB $ ps ++ conjuncts (toCnf p)
     retract  (PropKB ps) p = PropKB $ L.delete p ps
     ask      (PropKB ps) p = plResolution (And ps) p
+    askVars                = undefined
     axioms   (PropKB ps)   = ps
 
 -- |Concrete instance of a propositional logic knowledge base that will use
@@ -78,6 +79,7 @@ instance KB TruthTableKB PLExpr Bool where
     tell     (TT ps) p = TT $ ps ++ conjuncts (toCnf p)
     retract  (TT ps) p = TT $ L.delete p ps
     ask      (TT ps) p = ttEntails (And ps) p
+    askVars            = undefined
     axioms   (TT ps)   = ps
 
 data DefClauseKB p t = DC [DefiniteClause]
@@ -89,6 +91,7 @@ instance KB DefClauseKB DefiniteClause Bool where
     ask     (DC cs) c = if isFact c
         then fcEntails cs (conclusion c)
         else False
+    askVars           = undefined
     axioms  (DC cs)   = cs 
 
 -----------------------------------
