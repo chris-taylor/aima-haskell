@@ -41,11 +41,14 @@ instance Monad (DTree a) where
     Result b        >>= f = f b
     Decision att ts >>= f = Decision att (fmap (>>=f) ts)
 
--- |Create a decision tree from an attribute.
+-- |Create an attribution from a function and its name.
+att :: Enum b => (a -> b) -> String -> Att a
+att f str = Att (fromEnum . f) str
+
+-- |Create a simple decision tree from a function.
 attribute :: (Enum b,Bounded b) => (a -> b) -> String -> DTree a b
-attribute f label = Decision att tree
+attribute f label = Decision (att f label) tree
     where
-        att  = Att (fromEnum . f) label
         tree = M.fromList $ zip [0..] (map Result enum)
 
 -- |Run the decision tree on an example

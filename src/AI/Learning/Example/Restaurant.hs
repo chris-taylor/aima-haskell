@@ -36,7 +36,18 @@ x12 = Restaurant True True True True Full Cheap False False Burger Med True
 
 restaurants = [x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x2]
 
-tree = do
+atts = [ att alt "Alternative"
+       , att bar "Bar"
+       , att fri "Friday"
+       , att hun "Hungry"
+       , att pat "Patrons"
+       , att price "Price"
+       , att rain "Raining"
+       , att res "Reservation"
+       , att food "Food"
+       , att wait "Wait" ]
+
+actualTree = do
   patrons <- attribute pat "Patrons"
   case patrons of
     Empty -> return False
@@ -71,20 +82,6 @@ tree = do
               return (if friday then True else False)
         Long  -> return False
 
-att :: Enum b => (a -> b) -> String -> Att a
-att f str = Att (fromEnum . f) str
-
-atts = [ att alt "Alternative"
-       , att bar "Bar"
-       , att fri "Friday"
-       , att hun "Hungry"
-       , att pat "Patrons"
-       , att price "Price"
-       , att rain "Raining"
-       , att res "Reservation"
-       , att food "Food"
-       , att wait "Wait" ]
-
---tree = fitTree willWait atts restaurants
+fittedTree = fitTree willWait atts restaurants
 
 

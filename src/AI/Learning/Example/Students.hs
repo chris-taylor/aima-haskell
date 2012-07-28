@@ -23,29 +23,9 @@ matthew = Student False True False True True
 mary    = Student False False True True False
 
 -- |Attributes.
-atts = [ Att (fromEnum . firstLastYear) "firstLastYear"
-       , Att (fromEnum . male) "male"
-       , Att (fromEnum . worksHard) "worksHard"
-       , Att (fromEnum . drinks) "drinks" ]
-
-
-tree :: DTree Student Bool
-tree = do
-  a <- attribute firstLastYear "firstLastYear"
-  if a
-    then return True
-    else do
-      b <- attribute male "male"
-      if b
-        then return False
-        else do
-          c <- attribute worksHard "worksHard"
-          if c
-            then return True
-            else do
-              d <- attribute drinks "drinks"
-              return (if d then False else True)
-
-
+atts = [ att firstLastYear "firstLastYear"
+       , att male "male"
+       , att worksHard "worksHard"
+       , att drinks "drinks" ]
 
 --tree = fitTree firstThisYear atts students
