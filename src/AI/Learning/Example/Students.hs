@@ -1,5 +1,6 @@
 module AI.Learning.Example.Students where
 
+import qualified Data.Map as M
 import AI.Learning.DecisionTree
 
 data Student = Student {
@@ -9,7 +10,6 @@ data Student = Student {
     drinks :: Bool,
     firstThisYear :: Bool } deriving (Eq,Ord,Show)
 
--- |The training set.
 students = [richard,alan,alison,jeff,gail,simon]
 
 richard = Student True True False True True
@@ -23,14 +23,29 @@ matthew = Student False True False True True
 mary    = Student False False True True False
 
 -- |Attributes.
-atts = [
-    Att firstLastYear "firstLastYear",
-    Att male "male",
-    Att worksHard "worksHard",
-    Att drinks "drinks" ]
+atts = [ Att (fromEnum . firstLastYear) "firstLastYear"
+       , Att (fromEnum . male) "male"
+       , Att (fromEnum . worksHard) "worksHard"
+       , Att (fromEnum . drinks) "drinks" ]
 
-target = firstThisYear
 
-tree = fmap (map target . snd) $
-        prune (\(a,as) -> entropy as == 0) $
-        runSplitter (minSplit $ sumEntropy target) (atts,students)
+tree :: DTree Student Bool
+tree = do
+  a <- attribute firstLastYear "firstLastYear"
+  if a
+    then return True
+    else do
+      b <- attribute male "male"
+      if b
+        then return False
+        else do
+          c <- attribute worksHard "worksHard"
+          if c
+            then return True
+            else do
+              d <- attribute drinks "drinks"
+              return (if d then False else True)
+
+
+
+--tree = fitTree firstThisYear atts students

@@ -51,6 +51,13 @@ snd3 (_,b,_) = b
 thd3 :: (a,b,c) -> c
 thd3 (_,_,c) = c
 
+------------------
+-- Enumerations --
+------------------
+
+enum :: (Enum b, Bounded b) => [b]
+enum = [minBound .. maxBound]
+
 --------------------
 -- List Functions --
 --------------------
@@ -82,6 +89,27 @@ orderedPairs xs = [ (x,y) | x <- xs, y <- xs ]
 unorderedPairs :: [a] -> [(a,a)]
 unorderedPairs []     = []
 unorderedPairs (x:xs) = [ (x,y) | y <- xs ] ++ unorderedPairs xs
+
+--  |Returns a list of pairs. Each pair consists of an element from the list,
+--   and the rest of the list with the element removed. This is useful for
+--   deleting elements from a list where no 'Eq' instance is defined on elements
+--   (eg function types).
+--
+--  >>> points [1,2,3]
+--  [(1,[2,3]),(2,[1,3]),(3,[1,2])]
+points :: [a] -> [(a,[a])]
+points []     = []
+points (a:as) = (a,as) : [ (b,a:bs) | (b,bs) <- points as ]
+
+-- |Return 'True' if all elements of the list are equal.
+allEqual :: Eq a => [a] -> Bool
+allEqual (a:as) = all (==a) as
+
+-- |Return the most common value in a list.
+mode :: Ord b => [b] -> b
+mode xs = fst $ L.maximumBy (O.comparing snd) $
+            map (\a -> (head a, length a)) $
+            L.group $ L.sort xs
 
 -- |Return 'True' if the first set is a subset of the second, i.e. if every
 --  element of the first set is also an element of the second set.
