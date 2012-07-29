@@ -74,6 +74,10 @@ enum = [minBound .. maxBound]
 notNull :: [a] -> Bool
 notNull = not . null
 
+-- |Return the elements of a list at the specified indexes.
+elemsAt :: [a] -> [Int] -> [a]
+elemsAt as is = map (as!!) is
+
 -- |Update the element at position i in a list.
 insert :: Int -> a -> [a] -> [a]
 insert 0 n (_:xs) = n : xs
@@ -266,9 +270,41 @@ ignoreResult c = c >> return ()
 trapError :: MonadError e m => m () -> m ()
 trapError c = c `catchError` \_ -> return ()
 
---------------------
--- Random Numbers -- 
---------------------
+--------------------------
+-- Random Numbers (New) -- 
+--------------------------
+
+-- |Chooses a single element from a list at random, returning the element
+--  chosen and the rest of the list.
+selectOne :: Eq a => RandomGen g => [a] -> Rand g (a, [a])
+selectOne xs = do
+    let n = length xs
+    i <- getRandomR (0,n-1)
+    let x = xs !! i
+    return (x, L.delete x xs)
+
+-- |Select a number of elements from a list at random, returning the elements
+--  chosen the the rest of the list.
+selectMany' :: Eq a => RandomGen g => Int -> [a] -> Rand g ([a], [a])
+selectMany' 0 xs = return ([], xs)
+selectMany' k xs = do
+    (y,  xs')  <- selectOne xs
+    (ys, xs'') <- selectMany' (k-1) xs'
+    return (y:ys, xs'')
+
+-- |Generate a random variable from the 'Enum' and 'Bounded' type class. The
+--  'Int' input specifies how many values are in the enumeration.
+getRandomEnum :: (RandomGen g, Enum a, Bounded a) => Int -> Rand g a
+getRandomEnum i = getRandomR (0,i-1) >>= return . toEnum
+
+-- |Select a number of elements from a list at random, returning the elements
+--  chosen.
+selectMany :: Eq a => RandomGen g => Int -> [a] -> Rand g [a]
+selectMany k = fmap fst . selectMany' k
+
+--------------------------
+-- Random Numbers (Old) --
+--------------------------
 
 -- |Choose a random element from a list, given a generator.
 randomChoice :: RandomGen g => g -> [a] -> (a, g)
@@ -290,11 +326,6 @@ probability g p = if p' < p then (True, g') else (False, g')
 -- |Return @True@ with probability p.
 probabilityIO :: (R.Random a, Ord a, Num a) => a -> IO Bool
 probabilityIO p = randomIO >>= \q -> return $! if q < p then True else False
-
--- |Generate a random variable from the 'Enum' and 'Bounded' type class. The
---  'Int' input specifies how many values are in the enumeration.
-getRandomEnum :: (RandomGen g, Enum a, Bounded a) => Int -> Rand g a
-getRandomEnum i = getRandomR (0,i-1) >>= return . toEnum
 
 --------------------
 -- IO Combinators -- 

@@ -5,16 +5,12 @@
 module AI.Util.Array where
 
 import qualified Data.List as L
+import AI.Util.Util
 
 -- |Given a list of 'Int' in [0,1] that index an n-dimensional array, convert it
 --  to a single 'Int' that represents that index in a 1-d array.
 ndSubRef :: [Int] -> Int
 ndSubRef = L.foldl' (\a d -> 2 * a + d) 0
-
--- |Sub-reference a list. Return the sublist consisting of those elements at
---  the specified indexes.
-elemsAt :: [a] -> [Int] -> [a]
-elemsAt xs ns = map (xs!!) ns
 
 -- |Return the index of the first occurence of a particular element in a list.
 indexOf :: Eq a => [a] -> a -> Int
