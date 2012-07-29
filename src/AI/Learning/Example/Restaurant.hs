@@ -1,6 +1,11 @@
 module AI.Learning.Example.Restaurant where
 
+import Control.Monad
+import Control.Monad.Random
+import qualified Graphics.Gnuplot.Simple as G
+
 import AI.Learning.DecisionTree
+import AI.Util.Util
 
 data Patrons = Empty | Some | Full deriving (Show,Eq,Ord,Enum,Bounded)
 data Price = Cheap | Medium | Expensive deriving (Show,Eq,Ord,Enum,Bounded)
@@ -19,23 +24,9 @@ data Restaurant = Restaurant {
     food :: Type,       -- what type of food is it?
     wait :: Wait,       -- what is the wait?
     willWait :: Bool    -- will you wait?
-} deriving (Eq,Ord)
+} deriving (Show,Eq,Ord)
 
-x1  = Restaurant True False False True Some Expensive False True French None True
-x2  = Restaurant True False False True Full Cheap False False Thai Med False
-x3  = Restaurant False True False False Some Cheap False False Burger None True
-x4  = Restaurant True False True True Full Cheap True False Thai Short True
-x5  = Restaurant True False True False Full Expensive False True French Long False
-x6  = Restaurant False True False True Some Medium True True Italian None True
-x7  = Restaurant False True False False Empty Cheap True False Burger None False
-x8  = Restaurant False False False True Some Medium True True Thai None True
-x9  = Restaurant False True True False Full Cheap True False Burger Long False
-x10 = Restaurant True True True True Full Expensive False True Italian Short False
-x11 = Restaurant False False False False Empty Cheap False False Thai None False
-x12 = Restaurant True True True True Full Cheap False False Burger Med True
-
-restaurants = [x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x2]
-
+atts :: [Att Restaurant]
 atts = [ att alt "Alternative"
        , att bar "Bar"
        , att fri "Friday"
@@ -47,6 +38,53 @@ atts = [ att alt "Alternative"
        , att food "Food"
        , att wait "Wait" ]
 
+randomRestaurant :: RandomGen g => Rand g Restaurant
+randomRestaurant = do
+  alt   <- getRandom
+  bar   <- getRandom
+  fri   <- getRandom
+  hun   <- getRandom
+  pat   <- getRandomEnum 3
+  price <- getRandomEnum 3
+  rain  <- getRandom
+  res   <- getRandom
+  food  <- getRandomEnum 4
+  wait  <- getRandomEnum 4
+  let r = Restaurant alt bar fri hun pat price rain res food wait False
+  let willWait = decide actualTree r
+  return (Restaurant alt bar fri hun pat price rain res food wait willWait)
+
+randomDataSet :: RandomGen g => Int -> Rand g [Restaurant]
+randomDataSet n = replicateM n randomRestaurant
+
+---------------------------------------
+-- Demo of the decision tree library --
+---------------------------------------
+
+run :: RandomGen g => Int -> Int -> Rand g Float
+run nTrain nTest = do
+  train <- randomDataSet nTrain
+  test  <- randomDataSet nTest
+  return (crossValidate willWait fitTree atts train test)
+
+demo :: IO ()
+demo = do
+  vals <- evalRandIO $ do
+    let ns = [1..100]
+    mcrs <- forM ns $ \n -> liftM mean $ replicateM 20 $ run n 100
+    return (zip ns $ map (*100) mcrs)
+
+  let xlabel = G.XLabel "Size of test set"
+      ylabel = G.YLabel "Misclassification Rate (%)"
+      title  = G.Title  "Decision Tree Demo (Restaurants)"
+
+  G.plotList [xlabel,ylabel,title] vals
+
+--------------------------------------
+-- The decision tree in Figure 18.2 --
+--------------------------------------
+
+actualTree :: DTree Restaurant () Bool
 actualTree = do
   patrons <- attribute pat "Patrons"
   case patrons of
@@ -81,6 +119,24 @@ actualTree = do
               friday <- attribute fri "Fri/Sat"
               return (if friday then True else False)
         Long  -> return False
+
+------------------------------------------
+-- This is the example in AIMA Fig 18.3 -- 
+------------------------------------------
+
+restaurants = 
+  [ Restaurant True False False True Some Expensive False True French None True
+  , Restaurant True False False True Full Cheap False False Thai Med False
+  , Restaurant False True False False Some Cheap False False Burger None True
+  , Restaurant True False True True Full Cheap True False Thai Short True
+  , Restaurant True False True False Full Expensive False True French Long False
+  , Restaurant False True False True Some Medium True True Italian None True
+  , Restaurant False True False False Empty Cheap True False Burger None False
+  , Restaurant False False False True Some Medium True True Thai None True
+  , Restaurant False True True False Full Cheap True False Burger Long False
+  , Restaurant True True True True Full Expensive False True Italian Short False
+  , Restaurant False False False False Empty Cheap False False Thai None False
+  , Restaurant True True True True Full Cheap False False Burger Med True ]
 
 fittedTree = fitTree willWait atts restaurants
 

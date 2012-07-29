@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module AI.Learning.DecisionTree where
 
 import Data.Map (Map, (!))
@@ -13,6 +15,7 @@ import AI.Util.Util
 
 -- |An attribute is anything that can split the data into a number of classes.
 data Att a = Att { test :: a -> Int
+                 , vals :: [Int]
                  , label :: String }
 
 instance Show (Att a) where
@@ -26,7 +29,7 @@ instance Show (Att a) where
 --  returns results of type @b@. We store information of type @i@ at the nodes,
 --  which is useful for pruning the tree later.
 data DTree a i b = Result b
-                 | Decision (Att a) i (Map Int (DTree a i   b))
+                 | Decision (Att a) i (Map Int (DTree a i b))
 
 instance Show b => Show (DTree a i b) where
     show (Result b) = show b
@@ -42,9 +45,18 @@ instance Monad (DTree a i) where
     Result b          >>= f = f b
     Decision att i ts >>= f = Decision att i (fmap (>>=f) ts)
 
+mapI :: (i -> j) -> DTree a i b -> DTree a j b
+mapI f (Result b) = Result b
+mapI f (Decision att i ts) = Decision att (f i) (fmap (mapI f) ts)
+
+dropInfo :: DTree a i b -> DTree a () b
+dropInfo = mapI $ const ()
+
 -- |Create an attribution from a function and its name.
-att :: Enum b => (a -> b) -> String -> Att a
-att f str = Att (fromEnum . f) str
+att :: forall a b. (Enum b, Bounded b) => (a -> b) -> String -> Att a
+att f str = Att (fromEnum . f) (map fromEnum vs) str
+    where
+        vs = enum :: [b]
 
 -- |Create a simple decision tree from a function.
 attribute :: (Enum b,Bounded b) => (a -> b) -> String -> DTree a () b
@@ -58,8 +70,9 @@ decide (Result b) _ = b
 decide (Decision att _ branches) a = decide (branches ! test att a) a
 
 -- |Fit a decision tree to data, using the ID-3 algorithm.
-fitTree :: (Ord a,Ord b) => (a -> b) -> [Att a] -> [a] -> DTree a [b] b
-fitTree target atts as = fmap mode $ decisionTreeLearning target atts [] as
+fitTree :: (Ord a,Ord b) => (a -> b) -> [Att a] -> [a] -> DTree a () b
+fitTree target atts as =
+    dropInfo $ fmap mode $ decisionTreeLearning target atts [] as
 
 ----------------
 -- Data Split --
@@ -85,7 +98,7 @@ decisionTreeLearning target atts ps as
                 L.minimumBy (comparing (\(_,_,m) -> func (M.elems m))) choices
 
             choices =
-                [ (att,atts',partition (test att) as) | (att,atts') <- points atts ]
+                [ (att,atts',partition att as) | (att,atts') <- points atts ]
 
             func = sumEntropy target
 
@@ -93,9 +106,12 @@ decisionTreeLearning target atts ps as
             ps' = map target ps
 
 -- |Partition a list based on a function that maps elements of the list to
---  integers.
-partition :: (a -> Int) -> [a] -> Map Int [a]
-partition f xs = M.fromListWith (++) $ zip (map f xs) (map return xs)
+--  integers. This assumes that
+partition :: Att a -> [a] -> Map Int [a]
+partition att as = L.foldl' fun initial as
+    where
+        fun m a = M.insertWith (++) (test att a) [a] m
+        initial = mkUniversalMap (vals att) []
 
 -- |Compute the entropy of a list.
 entropy :: Ord a => [a] -> Float
@@ -110,9 +126,9 @@ entropy as = negate (entropy' probs)
 sumEntropy :: Ord b => (a -> b) -> [[a]] -> Float
 sumEntropy target as = sum $ map (entropy . map target) as
 
----------------
----- Pruning --
----------------
+-------------
+-- Pruning --
+-------------
 
 -- |Prune a tree to have a maximum depth of decisions.
 maxDecisions :: Int -> DTree a b b -> DTree a b b
@@ -129,3 +145,34 @@ prune p (Decision att i ts) =
     if p i
     then Result i
     else Decision att i (fmap (prune p) ts)
+
+-------------
+-- Testing --
+-------------
+
+-- |Compute the misclassification rate (MCR) of a particular decision tree
+--  on a data set.
+mcr :: Eq b => (a -> b) -> [a] -> DTree a i b -> Float
+mcr target as tree = 
+  let actual     = map target as
+      predicted  = map (decide tree) as
+      numCorrect = countIf id (zipWith (==) actual predicted)
+      numTotal   = length as
+   in fromIntegral (numTotal - numCorrect) / fromIntegral numTotal
+
+type DTTrainer a b = (a -> b) -> [Att a] -> [a] -> DTree a () b
+
+-- |Perform cross-validation with a training and test set, and return the
+--  misclassification rate.
+crossValidate :: Eq b =>
+                   (a -> b)         -- Target function
+                -> DTTrainer a b    -- Training algorithm
+                -> [Att a]          -- Attributes
+                -> [a]              -- Training set
+                -> [a]              -- Test set
+                -> Float            -- Misclassification rate
+crossValidate target trainer atts train test =
+  let tree = trainer target atts train
+   in mcr target test tree
+
+

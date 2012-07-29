@@ -9,6 +9,7 @@ import Control.Concurrent.STM
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Error
+import Control.Monad.Random
 import Data.Map (Map, (!))
 import System.CPUTime
 import System.Random
@@ -25,6 +26,13 @@ posInf = 1/0
 -- |Negative infinity.
 negInf :: Fractional a => a
 negInf = -1/0
+
+-- |Return the mean of a list of numbers
+mean :: Fractional a => [a] -> a
+mean xs = total / fromInteger len
+    where
+        (total,len) = L.foldl' go (0,0) xs
+        go (s,n) x = (s+x,n+1)
 
 ---------------------
 -- Maybe Functions --
@@ -282,6 +290,11 @@ probability g p = if p' < p then (True, g') else (False, g')
 -- |Return @True@ with probability p.
 probabilityIO :: (R.Random a, Ord a, Num a) => a -> IO Bool
 probabilityIO p = randomIO >>= \q -> return $! if q < p then True else False
+
+-- |Generate a random variable from the 'Enum' and 'Bounded' type class. The
+--  'Int' input specifies how many values are in the enumeration.
+getRandomEnum :: (RandomGen g, Enum a, Bounded a) => Int -> Rand g a
+getRandomEnum i = getRandomR (0,i-1) >>= return . toEnum
 
 --------------------
 -- IO Combinators -- 
