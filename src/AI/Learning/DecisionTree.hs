@@ -22,6 +22,9 @@ data Att a = Att { test :: a -> Int
 instance Show (Att a) where
     show att = "Att(" ++ label att ++ ")"
 
+instance Eq (Att a) where
+    Att _ _ lab1 == Att _ _ lab2 = lab1 == lab2
+
 -------------------
 -- Decision Tree --
 -------------------
@@ -146,97 +149,5 @@ prune p (Decision att i ts) =
     if p i
     then Result i
     else Decision att i (fmap (prune p) ts)
-
--------------
--- Testing --
--------------
-
--- |Compute the misclassification rate (MCR) of a particular decision tree
---  on a data set.
-mcr :: Eq b => (a -> b) -> [a] -> DTree a i b -> Float
-mcr target as tree = 
-  let actual     = map target as
-      predicted  = map (decide tree) as
-      numCorrect = countIf id (zipWith (==) actual predicted)
-      numTotal   = length as
-   in fromIntegral (numTotal - numCorrect) / fromIntegral numTotal
-
-type DTTrainer a b = (a -> b) -> [Att a] -> [a] -> DTree a () b
-
--- |Perform cross-validation with a training and test set, and return the
---  misclassification rate.
-crossValidate :: Eq b =>
-                   (a -> b)         -- Target function
-                -> DTTrainer a b    -- Training algorithm
-                -> [Att a]          -- Attributes
-                -> [a]              -- Training set
-                -> [a]              -- Test set
-                -> Float            -- Misclassification rate
-crossValidate target trainer atts train test =
-  let tree = trainer target atts train
-   in mcr target test tree
-
------------------------------
--- K-Fold Cross-Validation --
------------------------------
-
-type CVPartition = [ ([Int], [Int]) ]
-
--- |Creates a set of training/test indexes for k-fold cross validation. If there
---  are @n@ elements in the list and @n = s * k + i@ then we want to return
---  @i@ test sets of size @s+1@ and @k-i@ test sets of size @s@.
-cvPartition :: RandomGen g => Int -> [a] -> Rand g CVPartition
-cvPartition k xs = do
-    is <- go i (k - i) idx
-    return $ map (\i -> (idx L.\\ i, i)) is
-    where
-        go 0 0 idx = return []
-
-        go 0 j idx = do
-            (is, idx') <- selectMany' s idx
-            iss        <- go 0 (j-1) idx'
-            return (is:iss)
-
-        go i j idx = do
-            (is, idx') <- selectMany' (s+1) idx
-            iss        <- go (i-1) j idx'
-            return (is:iss)
-
-        n   = length xs
-        s   = n `div` k
-        i   = n `mod` k
-        idx = [0 .. n-1]
-
--- |Perform k-fold cross-validation. Given a 'CVPartition' containing a list
---  of training and test sets, we repeatedly fit a model on the training set
---  and test its performance on the test set/
-kFoldCV' :: Eq b =>
-            CVPartition     -- Partition of training/test sets
-         -> (a -> b)        -- Target function
-         -> DTTrainer a b   -- Training algorithm
-         -> [Att a]         -- Attributes
-         -> [a]             -- List of observations
-         -> Float           -- Misclassification rate
-kFoldCV' idxs target trainer atts as = go [] idxs
-    where
-        go mcrs []           = mean mcrs
-        go mcrs ((i1,i2):cs) =
-            let train = as `elemsAt` i1
-                test  = as `elemsAt` i2
-                mcr   = crossValidate target trainer atts train test
-            in go (mcr:mcrs) cs
-
--- |Perform k-fold cross-validation, randomly generating the training and
---  test sets first.
-kFoldCV :: (Eq b,RandomGen g) =>
-           Int              -- The /k/ in k-fold cross-validation
-        -> (a -> b)         -- Target function
-        -> DTTrainer a b    -- Training algorithm
-        -> [Att a]          -- Attributes
-        -> [a]              -- List of observations
-        -> Rand g Float     -- Misclassification rate
-kFoldCV k target trainer atts as = do
-    cp <- cvPartition k as
-    return (kFoldCV' cp target trainer atts as)
 
 

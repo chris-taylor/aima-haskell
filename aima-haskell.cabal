@@ -47,7 +47,9 @@ Library
                         AI.Probability.MDP
                         AI.Probability.Example.Alarm
                         AI.Probability.Example.Grass
+                        AI.Learning.Core
                         AI.Learning.DecisionTree
+                        AI.Learning.RandomForest
                         AI.Learning.Example.Students
                         AI.Learning.Example.Restaurant
                         AI.Util.Array

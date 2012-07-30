@@ -4,6 +4,7 @@ import Control.Monad
 import Control.Monad.Random
 import qualified Graphics.Gnuplot.Simple as G
 
+import AI.Learning.Core
 import AI.Learning.DecisionTree
 import AI.Util.Util
 
@@ -61,11 +62,18 @@ randomDataSet n = replicateM n randomRestaurant
 -- Demo of the decision tree library --
 ---------------------------------------
 
+treeBuilder :: [Restaurant] -> [Bool] -> Restaurant -> Bool
+treeBuilder as _ a =
+  let tree = fitTree willWait atts as
+   in decide tree a
+
 run :: RandomGen g => Int -> Int -> Rand g Float
 run nTrain nTest = do
-  train <- randomDataSet nTrain
-  test  <- randomDataSet nTest
-  return (crossValidate willWait fitTree atts train test)
+  xTrain <- randomDataSet nTrain
+  xTest  <- randomDataSet nTest
+  let yTrain = map willWait xTrain
+      yTest  = map willWait xTest
+  return (crossValidate treeBuilder xTrain yTrain xTest yTest)
 
 demo :: IO ()
 demo = do

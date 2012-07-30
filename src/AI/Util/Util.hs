@@ -292,15 +292,30 @@ selectMany' k xs = do
     (ys, xs'') <- selectMany' (k-1) xs'
     return (y:ys, xs'')
 
--- |Generate a random variable from the 'Enum' and 'Bounded' type class. The
---  'Int' input specifies how many values are in the enumeration.
-getRandomEnum :: (RandomGen g, Enum a, Bounded a) => Int -> Rand g a
-getRandomEnum i = getRandomR (0,i-1) >>= return . toEnum
-
 -- |Select a number of elements from a list at random, returning the elements
 --  chosen.
 selectMany :: Eq a => RandomGen g => Int -> [a] -> Rand g [a]
 selectMany k = fmap fst . selectMany' k
+
+-- |Choose a random element from a list.
+sampleOne :: RandomGen g => [a] -> Rand g a
+sampleOne [] = error "Empty list -- SAMPLEONE"
+sampleOne xs = do
+    n <- getRandomR (0, length xs - 1)
+    return (xs !! n)
+
+-- |Choose @n@ elements with replacement from a list.
+sampleWithReplacement :: RandomGen g => Int -> [a] -> Rand g [a]
+sampleWithReplacement 0 xs = return []
+sampleWithReplacement n xs = do
+    y  <- sampleOne xs
+    ys <- sampleWithReplacement (n-1) xs
+    return (y:ys)
+
+-- |Generate a random variable from the 'Enum' and 'Bounded' type class. The
+--  'Int' input specifies how many values are in the enumeration.
+getRandomEnum :: (RandomGen g, Enum a, Bounded a) => Int -> Rand g a
+getRandomEnum i = getRandomR (0,i-1) >>= return . toEnum
 
 --------------------------
 -- Random Numbers (Old) --
