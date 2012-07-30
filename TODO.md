@@ -18,6 +18,7 @@
   - More customisable table layout.
   - Use an external library?
 - Improve queueing module to use a more efficient data structure for priority queues.
+- Rewrite the Util.Array module to actually use arrays!
 - Organize Utils module into subsections.
 
 ## Search
@@ -47,7 +48,7 @@
   - Local search for SAT
   - Backward chaining
 - First-order logic:
-  - Theorem prover routines
+  - Backward chaining
   - Reduction to normal form
 
 ## Probability
@@ -61,8 +62,13 @@
 
 ## Learning
 
-- Continue work on decision tree learning
-- Pruning routines
-- Code to test decision trees against a test set
-- Code to automatically fit a (pruned) decision tree
-- Cross-validation
+- Prune decision trees using
+  - Max number of nodes
+  - Significance test at nodes
+- More functions to auto-fit decision trees
+- Handle continuous attributes
+- Compute precision, recall and f-statistic
+- Function to compare multiple classifiers
+- More examples - test random forest vs. pruned decision trees
+- Linear classifiers
+- Naive Bayes
