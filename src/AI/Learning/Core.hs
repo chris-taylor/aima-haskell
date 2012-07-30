@@ -41,6 +41,8 @@ crossValidate builder xTrain yTrain xTest yTest =
 -- K-Fold Cross-Validation --
 -----------------------------
 
+-- |Type for a list of partitions into training/test indexes. Used in the
+--  function 'kFoldCV'', and indirectly in 'kFoldCV'.
 type CVPartition = [ ([Int], [Int]) ]
 
 -- |Creates a set of training/test indexes for k-fold cross validation. If there
