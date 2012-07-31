@@ -66,6 +66,7 @@
   - Max number of nodes
   - Significance test at nodes
 - More functions to auto-fit decision trees
+- Decision tree demos are really slow - can they be optimized?
 - Handle continuous attributes
 - Compute precision, recall and f-statistic
 - Function to compare multiple classifiers
