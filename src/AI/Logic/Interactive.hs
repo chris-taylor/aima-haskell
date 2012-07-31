@@ -32,28 +32,56 @@ runLogic c s = ignoreResult $ runErrorT $ evalStateT c s
 ----------------------
 
 -- |Start an interaction with a propositional logic theorem prover that uses
---  a resolution algorithm to do inference.
+--  a resolution algorithm to do inference. An example interaction might look
+--  like this:
+--
+--  > runProp
+--  Propositional Logic Theorem Prover (Resolution)
+--  > tell p
+--  > tell p=>q
+--  > show
+--    0. p
+--    1. (~p | q)
+--  > ask q
+--  Entailed: q
+--  > quit
 runProp :: IO ()
 runProp = do
     putStrLn "Propositional Logic Theorem Prover (Resolution)"
     runLogic loop (empty :: P.PropKB P.PLExpr Bool)
 
 -- |Start an interaction with a propositional logic theorem prover that uses
---  truth tables to do inference.
+--  truth tables to do inference. See the documentation for 'runProp' for more
+--  information.
 runTruthTable :: IO ()
 runTruthTable = do
     putStrLn "Propositional Logic Theorem Prover (Truth Table)"
     runLogic loop (empty :: P.TruthTableKB P.PLExpr Bool)
 
 -- |Start an interaction with a theorem prover that uses Horn clause and forward
---  chaining to do inference.
+--  chaining to do inference. See the documentation for 'runProp' for more
+--  information.
 runForwardChaining :: IO ()
 runForwardChaining = do
     putStrLn "Proposition Logic Theorem Prover (Forward Chaining)"
     runLogic loop (empty :: P.DefClauseKB P.DefiniteClause Bool)
 
 -- |Start an interaction with a first-order logic theorem prover that uses
---  forward chaining.
+--  forward chaining. A typical interaction might look like this:
+--  
+--  > runFOL
+--  First Order Logic Theorem Prover (Forward Chaining)
+--  > tell Man(x)=>Mortal(x)
+--  > tell Man(Socrates)
+--  > show
+--    0. Man(x) => Mortal(x)
+--    1. Man(Socrates)
+--  > ask Mortal(Socrates)
+--  Entailed: Mortal(Socrates)
+--  > sat Mortal(x)
+--  Valid assignments:
+--    x: Socrates
+-- > quit
 runFOL :: IO ()
 runFOL = do
     putStrLn "First Order Logic Theorem Prover (Forward Chaining)"
