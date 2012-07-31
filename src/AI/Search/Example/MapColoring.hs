@@ -30,6 +30,10 @@ instance CSP MapColoringCSP String Char where
         then xv /= yv
         else True
 
+-----------------------------------
+-- Map Coloring Problems in AIMA --
+-----------------------------------
+
 australia :: MapColoringCSP String Char
 australia = MCP territories "RGB"
     where
@@ -54,3 +58,17 @@ usa = MCP states "RGBY"
             \PA: NY NJ DE MD WV; WV: MD VA; VA: MD DC NC; NC: SC; NY: VT MA CA NJ;\
             \NJ: DE; DE: MD; MD: DC; VT: NH MA; MA: NH RI CT; CT: RI; ME: NH;\
             \HI: ; AK: "
+
+-----------
+-- Demos --
+-----------
+
+demo1 :: IO ()
+demo1 = case backtrackingSearch australia fastOpts of
+    Nothing -> putStrLn "No solution found."
+    Just a  -> putStrLn "Solution found:" >> print a
+
+demo2 :: IO ()
+demo2 = case backtrackingSearch usa fastOpts of
+    Nothing -> putStrLn "No solution found."
+    Just a  -> putStrLn "Solution found:" >> print a

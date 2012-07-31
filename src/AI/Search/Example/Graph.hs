@@ -11,7 +11,7 @@ import Data.Maybe (fromJust)
 import System.IO
 import System.IO.Unsafe
 
-import qualified Control.Monad.State as ST
+import qualified Control.Monad.State as State
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Ord as O
@@ -92,48 +92,6 @@ instance Ord s => Problem GraphProblem s s where
 euclideanDist :: Location -> Location -> Double
 euclideanDist (x,y) (x',y') = sqrt $ (x-x')^2 + (y-y')^2
 
--- |The Romania graph from AIMA.
-romania :: GraphMap String
-romania = mkGraphMap
-
-    [ ("A", [("Z",75), ("S",140), ("T",118)])
-    , ("B", [("U",85), ("P",101), ("G",90), ("F",211)])
-    , ("C", [("D",120), ("R",146), ("P",138)])
-    , ("D", [("M",75)])
-    , ("E", [("H",86)])
-    , ("F", [("S",99)])
-    , ("H", [("U",98)])
-    , ("I", [("V",92), ("N",87)])
-    , ("L", [("T",111), ("M",70)])
-    , ("O", [("Z",71), ("S",151)])
-    , ("P", [("R",97)])
-    , ("R", [("S",80)])
-    , ("U", [("V",142)]) ]
-
-    [ ("A",( 91,491)), ("B",(400,327)), ("C",(253,288)), ("D",(165,299))
-    , ("E",(562,293)), ("F",(305,449)), ("G",(375,270)), ("H",(534,350))
-    , ("I",(473,506)), ("L",(165,379)), ("M",(168,339)), ("N",(406,537))
-    , ("O",(131,571)), ("P",(320,368)), ("R",(233,410)), ("S",(207,457))
-    , ("T",( 94,410)), ("U",(456,350)), ("V",(509,444)), ("Z",(108,531)) ]
-
--- |The Australia graph from AIMA.
-australia :: GraphMap String
-australia = mkGraphMap
-
-    [ ("T",   [])
-    , ("SA",  [("WA",1), ("NT",1), ("Q",1), ("NSW",1), ("V",1)])
-    , ("NT",  [("WA",1), ("Q",1)])
-    , ("NSW", [("Q", 1), ("V",1)]) ]
-
-    [ ("WA",(120,24)), ("NT" ,(135,20)), ("SA",(135,30)),
-      ("Q" ,(145,20)), ("NSW",(145,32)), ("T" ,(145,42)), ("V",(145,37))]
-
--- |Three example graph problems from AIMA.
-gp1, gp2, gp3  :: GraphProblem String String
-gp1 = GP { graphGP = australia, initGP = "Q", goalGP = "WA" }
-gp2 = GP { graphGP = romania, initGP = "A", goalGP = "B" }
-gp3 = GP { graphGP = romania, initGP = "O", goalGP = "N" }
-
 -- |Construct a random graph with the specified number of nodes, and random
 --  links. The nodes are laid out randomly on a @(width x height)@ rectangle.
 --  Then each node is connected to the @minLinks@ nearest neighbours. Because
@@ -146,14 +104,14 @@ randomGraphMap ::
               -> Double -- ^ Width
               -> Double -- ^ Height
               -> IO (GraphMap Int)
-randomGraphMap n minLinks width height = ST.execStateT go (mkGraphMap [] []) where
+randomGraphMap n minLinks width height = State.execStateT go (mkGraphMap [] []) where
     go = do
-        replicateM n mkLocation >>= ST.put . mkGraphMap [] . zip nodes
+        replicateM n mkLocation >>= State.put . mkGraphMap [] . zip nodes
 
         forM_ nodes $ \x -> do
 
-            ST.modify (addEmpty x)
-            g @ (G _ loc) <- ST.get
+            State.modify (addEmpty x)
+            g @ (G _ loc) <- State.get
 
             let nbrs     = map fst (getNeighbours x g)
                 numNbrs  = length nbrs
@@ -171,19 +129,19 @@ randomGraphMap n minLinks width height = ST.execStateT go (mkGraphMap [] []) whe
             addLink x y = do
                 curv <- curvature
                 dist <- distance x y
-                ST.modify $ addEdge x y (dist * curv)
+                State.modify $ addEdge x y (dist * curv)
 
             addEmpty x (G graph xs) = G (M.insert x M.empty graph) xs
 
-            mkLocation = ST.liftIO $ do
+            mkLocation = State.liftIO $ do
                 x <- R.randomRIO (0,width)
                 y <- R.randomRIO (0,height)
                 return (x,y)
 
-            curvature = ST.liftIO $ R.randomRIO (1.1, 1.5)
+            curvature = State.liftIO $ R.randomRIO (1.1, 1.5)
 
             distance x y = do
-                (G _ loc) <- ST.get
+                (G _ loc) <- State.get
                 return $ euclideanDist (loc ! x) (loc ! y)
 
 -- |Return a random instance of a graph problem with the specified number of
@@ -224,6 +182,51 @@ generateGraphProblems numProbs numNodes minLinks filepath = do
                 Nothing -> go n
                 Just _  -> go (n-1) >>= \ps -> return (p:ps)
 
+----------------------------------
+-- Graphs used in AIMA examples --
+----------------------------------
+
+-- |The Romania graph from AIMA.
+romania :: GraphMap String
+romania = mkGraphMap
+
+    [ ("A", [("Z",75), ("S",140), ("T",118)])
+    , ("B", [("U",85), ("P",101), ("G",90), ("F",211)])
+    , ("C", [("D",120), ("R",146), ("P",138)])
+    , ("D", [("M",75)])
+    , ("E", [("H",86)])
+    , ("F", [("S",99)])
+    , ("H", [("U",98)])
+    , ("I", [("V",92), ("N",87)])
+    , ("L", [("T",111), ("M",70)])
+    , ("O", [("Z",71), ("S",151)])
+    , ("P", [("R",97)])
+    , ("R", [("S",80)])
+    , ("U", [("V",142)]) ]
+
+    [ ("A",( 91,491)), ("B",(400,327)), ("C",(253,288)), ("D",(165,299))
+    , ("E",(562,293)), ("F",(305,449)), ("G",(375,270)), ("H",(534,350))
+    , ("I",(473,506)), ("L",(165,379)), ("M",(168,339)), ("N",(406,537))
+    , ("O",(131,571)), ("P",(320,368)), ("R",(233,410)), ("S",(207,457))
+    , ("T",( 94,410)), ("U",(456,350)), ("V",(509,444)), ("Z",(108,531)) ]
+
+-- |The Australia graph from AIMA.
+australia :: GraphMap String
+australia = mkGraphMap
+
+    [ ("T",   [])
+    , ("SA",  [("WA",1), ("NT",1), ("Q",1), ("NSW",1), ("V",1)])
+    , ("NT",  [("WA",1), ("Q",1)])
+    , ("NSW", [("Q", 1), ("V",1)]) ]
+
+    [ ("WA",(120,24)), ("NT" ,(135,20)), ("SA",(135,30)),
+      ("Q" ,(145,20)), ("NSW",(145,32)), ("T" ,(145,42)), ("V",(145,37))]
+
+gp1, gp2, gp3  :: GraphProblem String String
+gp1 = GP { graphGP = australia, initGP = "Q", goalGP = "WA" }
+gp2 = GP { graphGP = romania, initGP = "A", goalGP = "B" }
+gp3 = GP { graphGP = romania, initGP = "O", goalGP = "N" }
+
 -----------------------------
 -- Compare Graph Searchers --
 -----------------------------
@@ -233,16 +236,17 @@ generateGraphProblems numProbs numNodes minLinks filepath = do
 runDetailedCompare :: (Problem p s a, Ord s, Show s) => p s a -> IO ()
 runDetailedCompare = detailedCompareSearchers allSearchers allSearcherNames
 
--- |List of all search algorithms in this module.
+-- |List of all search algorithms that can be applied to problems with a graph
+--  structure. I'd like to add an iterative deepening graph search to this list,
+--  as well as some of the more exotic search algorithsm described in the
+--  textbook.
 allSearchers :: (Problem p s a, Ord s) => [p s a -> Maybe (Node s a)]
-allSearchers = [ breadthFirstGraphSearch
-               , depthFirstGraphSearch
+allSearchers = [ breadthFirstGraphSearch, depthFirstGraphSearch
                , greedyBestFirstSearch, uniformCostSearch, aStarSearch']
 
 -- |Names for the search algorithms in this module.
 allSearcherNames :: [String]
-allSearcherNames = [ "Breadth First Graph Search"
-                   , "Depth First Graph Search"
+allSearcherNames = [ "Breadth First Graph Search" , "Depth First Graph Search"
                    , "Greedy Best First Search", "Uniform Cost Search"
                    , "A* Search"]
 

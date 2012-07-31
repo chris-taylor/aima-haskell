@@ -2,6 +2,7 @@
 
 module AI.Search.Example.Sudoku where
 
+import Control.Monad
 import Data.Map (Map, (!))
 
 import qualified Data.List as L
@@ -46,6 +47,22 @@ parseGrid grid =
             else M.insert x digits
         initial = zip squares $ filter (`elem` ( "0." ++ digits)) grid
 
+------------------------------------------
+-- Example Sudokus (from Project Euler) --
+------------------------------------------
+
 sudoku1 = parseGrid "003020600900305001001806400008102900700000008006708200002609500800203009005010300"
 sudoku2 = parseGrid "200080300060070084030500209000105408000000000402706000301007040720040060004010003"
 sudoku3 = parseGrid "000000907000420180000705026100904000050000040000507009920108000034059000507000000"
+
+-----------
+-- Demos --
+-----------
+
+demo :: IO ()
+demo = do
+    let sudokus = [sudoku1,sudoku2,sudoku3]
+    forM_ sudokus $ \s -> case backtrackingSearch s fastOpts of
+        Nothing  -> putStrLn "No solution found."
+        Just sol -> do putStrLn "Solution found:"
+                       print sol

@@ -329,6 +329,12 @@ data Opts = Opts
 defaultOpts :: Opts
 defaultOpts = Opts False False False False
 
+-- |Use 'optimized' options for backtracking search. We maintain arc consistency
+--  at each stage, and use the most constrained variable and least constraining
+--  variable heuristics.
+fastOpts :: Opts
+fastOpts = Opts True True False True
+
 -- |Use Most Constrained Variable heuristic?
 useMcv :: MonadReader Opts m => m Bool
 useMcv = ask >>= return . mcv
