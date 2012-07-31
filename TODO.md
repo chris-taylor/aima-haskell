@@ -67,6 +67,7 @@
   - Significance test at nodes
 - More functions to auto-fit decision trees
 - Decision tree demos are really slow - can they be optimized? In particular, computing the entropy for splits takes a long time.
+- Cross validation should return average validation set error rate
 - Handle continuous attributes
 - Compute precision, recall and f-statistic
 - Function to compare multiple classifiers
