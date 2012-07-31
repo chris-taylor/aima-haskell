@@ -224,7 +224,6 @@ generateGraphProblems numProbs numNodes minLinks filepath = do
                 Nothing -> go n
                 Just _  -> go (n-1) >>= \ps -> return (p:ps)
 
-
 -----------------------------
 -- Compare Graph Searchers --
 -----------------------------
@@ -236,14 +235,14 @@ runDetailedCompare = detailedCompareSearchers allSearchers allSearcherNames
 
 -- |List of all search algorithms in this module.
 allSearchers :: (Problem p s a, Ord s) => [p s a -> Maybe (Node s a)]
-allSearchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
-               , depthFirstGraphSearch, iterativeDeepeningSearch
+allSearchers = [ breadthFirstGraphSearch
+               , depthFirstGraphSearch
                , greedyBestFirstSearch, uniformCostSearch, aStarSearch']
 
 -- |Names for the search algorithms in this module.
 allSearcherNames :: [String]
-allSearcherNames = [ "Breadth First Tree Search", "Breadth First Graph Search"
-                   , "Depth First Graph Search", "Iterative Deepening Search"
+allSearcherNames = [ "Breadth First Graph Search"
+                   , "Depth First Graph Search"
                    , "Greedy Best First Search", "Uniform Cost Search"
                    , "A* Search"]
 
@@ -259,3 +258,15 @@ demo1 = compareSearchers searchers probs header algonames >> return ()
         probs     = [gp1, gp2, gp3]
         header    = ["Searcher", "Australia", "Romania(A,B)","Romania(O,N)"]
         algonames = allSearcherNames
+
+-- |Load ten example problems from a file and run all searchers over them.
+demo2 :: IO ()
+demo2 = do
+    ps <- readGraphProblems "data\\problems_small.txt"
+    mapM_ runDetailedCompare ps
+
+-- |Load 100 example problems from a file and run all searchers over them.
+demo3 :: IO ()
+demo3 = do
+    ps <- readGraphProblems "data\\problems_large.txt"
+    mapM_ runDetailedCompare ps
