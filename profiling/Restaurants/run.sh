@@ -2,7 +2,7 @@
 
 # Reinstall library
 cd ../..
-cabal install -O2 -p -fprof-auto 
+cabal install -O2 -p
 cd "profiling/Restaurants/"
 
 # Compile test file
