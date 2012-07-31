@@ -182,3 +182,14 @@ linesInDir s@(TTS board _ _ (h,v,k)) dir =
 lineThrough :: TTState -> (Int,Int) -> (Int,Int) -> [Maybe TTCounter]
 lineThrough (TTS board _ _ (h,v,k)) (x,y) (dx,dy) = 
     take k $ map (`M.lookup` board) ( zip [x,x+dx..] [y,y+dy..] )
+
+----------
+-- Demo --
+----------
+
+-- |Play a game of tic-tac-toe against a player using the minimax algorithm
+--  with full search. This player is impossible to beat - the best you can
+--  do is to draw.
+demo :: IO ()
+demo = do playGameIO ticTacToe queryPlayer minimaxFullSearchPlayer
+          return ()
