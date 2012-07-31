@@ -66,7 +66,7 @@
   - Max number of nodes
   - Significance test at nodes
 - More functions to auto-fit decision trees
-- Decision tree demos are really slow - can they be optimized?
+- Decision tree demos are really slow - can they be optimized? In particular, computing the entropy for splits takes a long time.
 - Handle continuous attributes
 - Compute precision, recall and f-statistic
 - Function to compare multiple classifiers
