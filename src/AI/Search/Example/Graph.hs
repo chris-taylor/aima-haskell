@@ -252,12 +252,10 @@ allSearcherNames = [ "Breadth First Graph Search"
 
 -- |Run all search algorithms over a few example problems.
 demo1 :: IO ()
-demo1 = compareSearchers searchers probs header algonames >> return ()
+demo1 = compareSearchers allSearchers probs header allSearcherNames >> return ()
     where
-        searchers = allSearchers
         probs     = [gp1, gp2, gp3]
         header    = ["Searcher", "Australia", "Romania(A,B)","Romania(O,N)"]
-        algonames = allSearcherNames
 
 -- |Load ten example problems from a file and run all searchers over them.
 demo2 :: IO ()
