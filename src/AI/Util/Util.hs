@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module AI.Util.Util where
 
 import qualified Data.List as L
@@ -31,8 +33,8 @@ negInf = -1/0
 mean :: Fractional a => [a] -> a
 mean xs = total / fromInteger len
     where
-        (total,len) = L.foldl' go (0,0) xs
-        go (s,n) x = (s+x,n+1)
+        (total,len) = L.foldl' k (0,0) xs
+        k (!s,!n) x = (s+x, n+1)
 
 ---------------------
 -- Maybe Functions --
