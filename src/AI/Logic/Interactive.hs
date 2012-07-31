@@ -35,16 +35,16 @@ runLogic c s = ignoreResult $ runErrorT $ evalStateT c s
 --  a resolution algorithm to do inference. An example interaction might look
 --  like this:
 --
---  > runProp
+--  >>> runProp
 --  Propositional Logic Theorem Prover (Resolution)
---  > tell p
---  > tell p=>q
---  > show
+--  >>> tell p
+--  >>> tell p=>q
+--  >>> show
 --    0. p
 --    1. (~p | q)
---  > ask q
+--  >>> ask q
 --  Entailed: q
---  > quit
+--  >>> quit
 runProp :: IO ()
 runProp = do
     putStrLn "Propositional Logic Theorem Prover (Resolution)"
@@ -69,19 +69,19 @@ runForwardChaining = do
 -- |Start an interaction with a first-order logic theorem prover that uses
 --  forward chaining. A typical interaction might look like this:
 --  
---  > runFOL
+--  >>> runFOL
 --  First Order Logic Theorem Prover (Forward Chaining)
---  > tell Man(x)=>Mortal(x)
---  > tell Man(Socrates)
---  > show
+--  >>> tell Man(x)=>Mortal(x)
+--  >>> tell Man(Socrates)
+--  >>> show
 --    0. Man(x) => Mortal(x)
 --    1. Man(Socrates)
---  > ask Mortal(Socrates)
+--  >>> ask Mortal(Socrates)
 --  Entailed: Mortal(Socrates)
---  > sat Mortal(x)
+--  >>> sat Mortal(x)
 --  Valid assignments:
 --    x: Socrates
--- > quit
+--  >>> quit
 runFOL :: IO ()
 runFOL = do
     putStrLn "First Order Logic Theorem Prover (Forward Chaining)"
