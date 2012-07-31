@@ -8,6 +8,7 @@ import Control.Monad
 import Data.IORef
 import Data.Map (Map, (!))
 import Data.Maybe (fromJust)
+import System.IO
 import System.IO.Unsafe
 
 import qualified Control.Monad.State as ST
@@ -33,7 +34,7 @@ import qualified AI.Util.WeightedGraph as G
 --  between nodes) and a map of graph nodes to locations.
 data GraphMap a = G
     { getGraph     :: WeightedGraph a Cost
-    , getLocations :: Map a Location } deriving (Show)
+    , getLocations :: Map a Location } deriving (Show,Read)
 
 -- |Type synonym for a pair of doubles, representing a location in cartesian
 --  coordinates.
@@ -72,7 +73,7 @@ costFromTo graph a b = case lookup b (getNeighbours a graph) of
 data GraphProblem s a = GP
     { graphGP :: GraphMap s
     , initGP :: s
-    , goalGP :: s } deriving (Show)
+    , goalGP :: s } deriving (Show,Read)
 
 -- |GraphProblems are an instance of Problem. The heuristic function measures
 --  the Euclidean (straight-line) distance between two nodes. It is assumed that
@@ -189,8 +190,40 @@ randomGraphMap n minLinks width height = ST.execStateT go (mkGraphMap [] []) whe
 --  nodes and minimum number of links.
 randomGraphProblem :: Int -> Int -> IO (GraphProblem Int Int)
 randomGraphProblem numNodes minLinks = do
-    g <- randomGraphMap numNodes minLinks 100 100
-    return (GP g 1 numNodes)
+    g@(G _ loc) <- randomGraphMap numNodes minLinks 100 100
+    let initial = fst $ L.minimumBy (O.comparing (fst.snd)) (M.toList loc)
+        goal    = fst $ L.maximumBy (O.comparing (fst.snd)) (M.toList loc)
+    return (GP g initial goal)
+
+-- |Write a list of graph problems to a file.
+writeGraphProblems :: Show p => FilePath -> [p] -> IO ()
+writeGraphProblems filename ps = do
+    h <- openFile filename WriteMode
+    forM_ ps (hPrint h)
+    hClose h
+
+-- |Read a list of graph problems from a file.
+readGraphProblems :: FilePath -> IO [GraphProblem Int Int]
+readGraphProblems filepath = do
+    contents <- readFile filepath
+    return $ map read $ lines contents
+
+-- |Generate random graph problems and write them to a file. Each problem is
+--  checked for solvability by running the 'depthFirstGraphSearch' algorithm
+--  on it. This function finds poor solutions, but terminates quickly on this
+--  kind of problem.
+generateGraphProblems :: Int -> Int -> Int -> FilePath -> IO ()
+generateGraphProblems numProbs numNodes minLinks filepath = do
+    probs <- go numProbs
+    writeGraphProblems filepath probs
+    where
+        go 0 = return []
+        go n = do
+            p  <- randomGraphProblem numNodes minLinks
+            case depthFirstGraphSearch p of
+                Nothing -> go n
+                Just _  -> go (n-1) >>= \ps -> return (p:ps)
+
 
 -----------------------------
 -- Compare Graph Searchers --
@@ -209,16 +242,18 @@ allSearchers = [ breadthFirstTreeSearch, breadthFirstGraphSearch
 
 -- |Names for the search algorithms in this module.
 allSearcherNames :: [String]
-allSearcherNames = [ "Breadth First Tree Search", "Breadth First WeightedGraph Search"
-                   , "Depth First WeightedGraph Search", "Iterative Deepening Search"
+allSearcherNames = [ "Breadth First Tree Search", "Breadth First Graph Search"
+                   , "Depth First Graph Search", "Iterative Deepening Search"
                    , "Greedy Best First Search", "Uniform Cost Search"
                    , "A* Search"]
 
+-----------
+-- Demos --
+-----------
+
 -- |Run all search algorithms over a few example problems.
-compareGraphSearchers :: IO ()
-compareGraphSearchers = do
-    compareSearchers searchers probs header algonames
-    return ()
+demo1 :: IO ()
+demo1 = compareSearchers searchers probs header algonames >> return ()
     where
         searchers = allSearchers
         probs     = [gp1, gp2, gp3]

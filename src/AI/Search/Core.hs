@@ -210,7 +210,7 @@ testSearcher prob searcher = do
 instance (NFData s, NFData a) => NFData (Node s a) where
     rnf (Node state parent action cost depth value) = 
         state `seq` parent `seq` action `seq`
-        cost `seq`depth `seq` value `seq`
+        cost `seq` depth `seq` value `seq`
         Node state parent action cost depth value `seq` ()
 
 -- |Run a search algorithm over a problem, returning the time it took as well

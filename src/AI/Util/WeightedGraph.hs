@@ -6,12 +6,16 @@ module AI.Util.WeightedGraph
     , getNeighbours
     , getEdge
     , addEdge
-    , addUndirectedEdge) where
+    , addUndirectedEdge
+    , writeGraphs
+    , readGraphs ) where
 
+import Control.Monad (forM_)
 import Data.Map (Map, (!))
 import qualified Data.Map as M
 import qualified Data.List as L
 import qualified Data.Text as T
+import System.IO
 
 ---------------------
 -- Weighted Graphs --
@@ -58,15 +62,35 @@ addEdge x y e graph = M.adjust (M.insert y e) x graph
 addUndirectedEdge :: Ord a => a -> a -> b -> WeightedGraph a b -> WeightedGraph a b
 addUndirectedEdge x y e graph = addEdge y x e (addEdge x y e graph)
 
+----------------
+-- Read/Write --
+----------------
+
+writeGraphs :: Show g => FilePath -> [g] -> IO ()
+writeGraphs filename gs = do
+    h <- openFile filename WriteMode
+    forM_ gs $ \g -> hPrint h g
+    hClose h
+
+readGraphs :: (Ord a,Read a,Read b) => FilePath -> IO [WeightedGraph a b]
+readGraphs filename = do
+    contents <- readFile filename
+    return $ map read $ lines contents
+
+
+----------------------
+-- Helper functions --
+----------------------
+
 -- |Convert a graph to its adjacency list representation.
-fromGraph :: WeightedGraph a b -> [(a, [(a,b)])]
-fromGraph xs = map g (M.toList xs)
+toAdjacencyList :: WeightedGraph a b -> [(a, [(a,b)])]
+toAdjacencyList xs = map g (M.toList xs)
     where
         g (a,bs) = (a, M.toList bs)
 
 -- |Convert a graph to its ordered pair representation.
 toPairRep :: WeightedGraph a b -> [(a,a,b)]
-toPairRep xs = [ (a,b,c) | (a,bs) <- fromGraph xs, (b,c) <- bs ]
+toPairRep xs = [ (a,b,c) | (a,bs) <- toAdjacencyList xs, (b,c) <- bs ]
 
 -- |Convert a graph from its ordered pair representation.
 fromPairRep :: (Ord a) => [(a,a,b)] -> WeightedGraph a b
