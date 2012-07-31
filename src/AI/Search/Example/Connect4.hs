@@ -54,3 +54,7 @@ lowestUnoccupied col (TTS board _ _ (_,v,_)) =
     let coords   = map (\row -> (col,row)) [0..v-1]
         counters = map (`M.lookup` board) coords
     in (countIf (/=Nothing) counters)
+
+-- |Play a game of Connect 4 against an opponent using alpha/beta search.
+demo :: IO ()
+demo = playGameIO connect4 queryPlayer (iterativeAlphaBetaPlayer 5) >> return ()
