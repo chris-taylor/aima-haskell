@@ -22,9 +22,21 @@ Source-Repository head
     Location:       git://github.com/chris-taylor/aima-haskell.git
 
 Library
-    Build-Depends:      base >= 2, containers, random, stm, deepseq, mtl, text, parsec, MonadRandom, array, gnuplot
     Extensions:         MultiParamTypeClasses
     Hs-Source-Dirs:     src
+    GHC-Options:        -O2
+    GHC-Prof-Options:   -O2 -auto-all
+    Build-Depends:      base >= 2,
+                        containers,
+                        random,
+                        stm,
+                        deepseq,
+                        mtl,
+                        text,
+                        parsec,
+                        MonadRandom,
+                        array,
+                        gnuplot
     Exposed-Modules:    AI.Core.Agents
                         AI.Search.Core
                         AI.Search.Uninformed

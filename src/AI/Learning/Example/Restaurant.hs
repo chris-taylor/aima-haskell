@@ -41,8 +41,8 @@ atts = [ att alt "Alternative"
        , att food "Food"
        , att wait "Wait" ]
 
-randomRestaurant :: RandomGen g => Float -> Rand g Restaurant
-randomRestaurant noise = do
+randomRestaurantNoisy :: RandomGen g => Float -> Rand g Restaurant
+randomRestaurantNoisy noise = do
   alt   <- getRandom
   bar   <- getRandom
   fri   <- getRandom
@@ -60,25 +60,36 @@ randomRestaurant noise = do
     then mkR willWait
     else mkR (not willWait)
 
-randomDataSet :: RandomGen g => Float -> Int -> Rand g [Restaurant]
-randomDataSet noise n = replicateM n (randomRestaurant noise)
+randomRestaurant :: RandomGen g => Rand g Restaurant
+randomRestaurant = do
+  alt   <- getRandom
+  bar   <- getRandom
+  fri   <- getRandom
+  hun   <- getRandom
+  pat   <- getRandomEnum 3
+  price <- getRandomEnum 3
+  rain  <- getRandom
+  res   <- getRandom
+  food  <- getRandomEnum 4
+  wait  <- getRandomEnum 4
+  let mkR ww   = Restaurant alt bar fri hun pat price rain res food wait ww
+      willWait = decide actualTree (mkR False)
+  return (mkR willWait)
 
----------------------------------------
--- Demo of the decision tree library --
----------------------------------------
+randomDataSetNoisy :: RandomGen g => Float -> Int -> Rand g [Restaurant]
+randomDataSetNoisy noise n = replicateM n (randomRestaurantNoisy noise)
+
+randomDataSet :: RandomGen g => Int -> Rand g [Restaurant]
+randomDataSet n = replicateM n randomRestaurant
+
+--------------------
+-- Model builders --
+--------------------
 
 treeBuilder :: [Restaurant] -> [Bool] -> Restaurant -> Bool
 treeBuilder as _ a =
   let tree = fitTree willWait atts as
    in decide tree a
-
---treeBuilderR :: RandomGen g =>
---                [Restaurant]
---             -> [Bool]
---             -> Rand g (Restaurant -> Bool)
---treeBuilderR as _ =
---  let tree = fitTree willWait atts as
---   in return (decide tree)
 
 forestBuilder :: Int -> Int -> [Restaurant] -> [Bool] -> Restaurant -> Bool
 forestBuilder nTree nAtt as bs a = do
@@ -86,25 +97,55 @@ forestBuilder nTree nAtt as bs a = do
                RF.randomForest nTree nAtt willWait atts as
    in RF.decide forest a
 
-run :: RandomGen g =>
+---------------------------------------
+-- Demo of the decision tree library --
+---------------------------------------
+
+runWithNoise :: RandomGen g =>
        Builder Restaurant Bool
     -> Int
     -> Int
     -> Float
     -> Rand g Float
-run builder nTrain nTest noise = do
-  xTrain <- randomDataSet noise nTrain
-  xTest  <- randomDataSet noise nTest
+runWithNoise builder nTrain nTest noise = do
+  xTrain <- randomDataSetNoisy noise nTrain
+  xTest  <- randomDataSetNoisy noise nTest
   let yTrain = map willWait xTrain
       yTest  = map willWait xTest
   return (crossValidate builder xTrain yTrain xTest yTest)
 
-demo :: Float -> IO ()
-demo noise = do
+runNoNoise :: RandomGen g =>
+        Int
+     -> Int
+     -> Rand g Float
+runNoNoise nTrain nTest = do
+  xTrain <- randomDataSet nTrain
+  xTest  <- randomDataSet nTest
+  let yTrain = map willWait xTrain
+      yTest  = map willWait xTest
+  return (crossValidate treeBuilder xTrain yTrain xTest yTest)
+
+demo2 :: Float -> IO ()
+demo2 noise = do
   vals <- evalRandIO $ do
-    let ns = [1..20]
+    let ns = [1..100]
     mcrs <- forM ns $ \n -> do
-      sampleMcrs <- replicateM 20 $ run treeBuilder n 100 noise
+      sampleMcrs <- replicateM 100 $ runWithNoise treeBuilder n 100 noise
+      return (mean sampleMcrs)
+    return (zip ns $ map (*100) mcrs)
+
+  let xlabel = G.XLabel "Size of test set"
+      ylabel = G.YLabel "Misclassification Rate (%)"
+      title  = G.Title  "Decision Tree Demo (Restaurants)"
+
+  G.plotList [xlabel,ylabel,title] vals
+
+demo1 :: IO ()
+demo1 = do
+  vals <- evalRandIO $ do
+    let ns = [1..100]
+    mcrs <- forM ns $ \n -> do
+      sampleMcrs <- replicateM 100 $ runNoNoise n 100
       return (mean sampleMcrs)
     return (zip ns $ map (*100) mcrs)
 

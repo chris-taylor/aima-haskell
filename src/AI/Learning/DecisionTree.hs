@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, BangPatterns #-}
 
 module AI.Learning.DecisionTree where
 
@@ -114,21 +114,37 @@ decisionTreeLearning target atts ps as
 partition :: Att a -> [a] -> Map Int [a]
 partition att as = L.foldl' fun initial as
     where
-        fun m a = M.insertWith (++) (test att a) [a] m
+        fun m a = M.insertWith' (++) (test att a) [a] m
         initial = mkUniversalMap (vals att) []
 
 -- |Compute the entropy of a list.
-entropy :: Ord a => [a] -> Float
-entropy as = negate (entropy' probs)
+--entropy :: Ord a => [a] -> Float
+--entropy as = negate (entropy' probs)
+--    where
+--        entropy' ps = sum $ map (\p -> if p == 0 then 0 else p * log p) ps
+--        probs       = map ((/len) . fromIntegral . length) $ L.group $ L.sort as
+--        len         = fromIntegral (length as)
+
+--entropy1 :: Ord a => [a] -> Float
+--entropy1 as = entropy' probs
+--    where
+--        entropy' ps    = negate . sum $ map (\p -> if p == 0 then 0 else p * log p) ps
+--        (len, cnts)    = L.foldl' go (0,M.empty) as
+--        go (!len,!m) a = (len+1, M.insertWith' (+) a 1 m)
+--        probs          = map ((/fromIntegral len) . fromIntegral) $ M.elems cnts
+
+entropy2 :: Ord a => [a] -> Float
+entropy2 as = entropy' probs
     where
-        entropy' ps = sum $ map (\p -> if p == 0 then 0 else p * log p) ps
-        probs       = map ((/len) . fromIntegral . length) $ L.group $ L.sort as
-        len         = fromIntegral (length as)
+        entropy' ps = negate . sum $ map (\p -> if p == 0 then 0 else p * log p) ps
+        probs    = map ((/len) . fromIntegral) $ M.elems $ L.foldl' go M.empty as
+        go m a = M.insertWith' (const (+1)) a 1 m
+        len      = fromIntegral (length as)
 
 -- |When given a target function, this can be used as an input to the 'minSplit'
 --  routine.
 sumEntropy :: Ord b => (a -> b) -> [[a]] -> Float
-sumEntropy target as = sum $ map (entropy . map target) as
+sumEntropy target as = sum $ map (entropy2 . map target) as
 
 -------------
 -- Pruning --
