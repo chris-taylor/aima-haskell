@@ -1,4 +1,4 @@
 import AI.Learning.Example.Restaurant
 
 main :: IO ()
-main = demo2
+main = demo1
