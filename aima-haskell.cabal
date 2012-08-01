@@ -44,13 +44,14 @@ Library
                         AI.Search.Local
                         AI.Search.Adversarial
                         AI.Search.CSP
-                        AI.Search.Example.Graph
-                        AI.Search.Example.NQueens
-                        AI.Search.Example.Fig52Game
-                        AI.Search.Example.TicTacToe
+                        AI.Search.Example.Chess
                         AI.Search.Example.Connect4
+                        AI.Search.Example.Fig52Game
+                        AI.Search.Example.Graph
                         AI.Search.Example.MapColoring
+                        AI.Search.Example.NQueens
                         AI.Search.Example.Sudoku
+                        AI.Search.Example.TicTacToe
                         AI.Logic.Core
                         AI.Logic.Interactive
                         AI.Logic.Propositional
