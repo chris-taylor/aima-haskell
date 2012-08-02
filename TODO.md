@@ -36,10 +36,16 @@
   - Alpha-beta search that orders nodes according to some heuristic before searching.
   - Stochastic games (using probability monad?)
   - Figure out why alpha/beta search sometimes makes stupid decisions while playingConnect 4.
-  - More game examples - e.g. checkers?
 - Constraint Satisfaction
   - Wrapper for CSP class to allow statistics to be collected.
   - Examples - word puzzles, scheduling, n queens?
+- Examples
+  - Use GraphViz to draw graph problems
+  - Interactive stepping through a graph problem - highlight nodes as they are explored, keep track of running cost etc.
+  - GUI for graph problems?
+  - GUI for interactive playing of tic-tac-toe/connect 4?
+  - Finish chess example
+  - Other games, e.g checkers?
 
 ## Logic
 
