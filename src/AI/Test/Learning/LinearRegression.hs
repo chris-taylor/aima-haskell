@@ -1,4 +1,4 @@
-module AI.Test.Learning.LinearRegression where
+module AI.Test.Learning.LinearRegression (runAllTests) where
 
 import Data.Packed.Matrix
 import Data.Packed.Vector
