@@ -27,3 +27,13 @@ horzcat = fromBlocks . return
 -- |Concatenate matrices vertically.
 vertcat :: Element a => [Matrix a] -> Matrix a
 vertcat = fromBlocks . map return
+
+--------------------------
+-- Functions on Vectors --
+--------------------------
+
+sumVector :: (Num a,Storable a) => Vector a -> a
+sumVector = foldVector (+) 0
+
+prodVector :: (Num a,Storable a) => Vector a -> a
+prodVector = foldVector (*) 1

@@ -13,10 +13,10 @@ import AI.Test.Util
 testRegressionAgainstZeros :: Gen Bool
 testRegressionAgainstZeros = do
     m <- choose (1,10)
-    n <- choose (m+1,100)
+    n <- choose (m,100)
     x <- arbitraryGaussianMatrix (n,m) :: Gen (Matrix Double)
     let y       = constant 0 n
-        b       = constant 0 (m+1)
+        b       = constant 0 m
         bSample = regress y x
     return (bSample == b)
 
