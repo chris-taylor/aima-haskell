@@ -21,7 +21,7 @@ Source-Repository head
     Type:           git
     Location:       git://github.com/chris-taylor/aima-haskell.git
 
-Library
+Library                 
     Extensions:         MultiParamTypeClasses
     Hs-Source-Dirs:     src
     GHC-Options:        -O2
@@ -37,7 +37,8 @@ Library
                         MonadRandom,
                         array,
                         gnuplot,
-                        hmatrix
+                        hmatrix,
+                        QuickCheck
     Exposed-Modules:    AI.Core.Agents
                         AI.Search.Core
                         AI.Search.Uninformed
@@ -67,6 +68,9 @@ Library
                         AI.Learning.RandomForest
                         AI.Learning.Example.Students
                         AI.Learning.Example.Restaurant
+                        AI.Test.Main
+                        AI.Test.Learning.LinearRegression
+                        AI.Test.Util
                         AI.Util.Array
                         AI.Util.Graph
                         AI.Util.Matrix
@@ -75,3 +79,5 @@ Library
                         AI.Util.Table
                         AI.Util.Util
                         AI.Util.WeightedGraph
+
+
