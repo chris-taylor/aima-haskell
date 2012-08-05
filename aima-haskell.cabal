@@ -36,7 +36,8 @@ Library
                         parsec,
                         MonadRandom,
                         array,
-                        gnuplot
+                        gnuplot,
+                        hmatrix
     Exposed-Modules:    AI.Core.Agents
                         AI.Search.Core
                         AI.Search.Uninformed
@@ -62,6 +63,7 @@ Library
                         AI.Probability.Example.Grass
                         AI.Learning.Core
                         AI.Learning.DecisionTree
+                        AI.Learning.LinearRegression
                         AI.Learning.RandomForest
                         AI.Learning.Example.Students
                         AI.Learning.Example.Restaurant
