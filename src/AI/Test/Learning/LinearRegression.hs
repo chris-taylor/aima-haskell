@@ -17,7 +17,7 @@ testRegressionAgainstZeros = do
     x <- arbitraryGaussianMatrix (n,m) :: Gen (Matrix Double)
     let y       = constant 0 n
         b       = constant 0 m
-        bSample = regress y x
+        bSample = regress x y
     return (bSample == b)
 
 
