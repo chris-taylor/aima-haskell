@@ -39,13 +39,15 @@ prodVector xs = foldVector (*) 1 xs
 -- Functions on Matrices --
 ---------------------------
 
-sumMatrix :: (Num a, Element a) => Matrix a -> Int -> Vector a
-sumMatrix m dim = case dim of
-    1 -> fromList $ map sumVector $ toColumns m
-    2 -> fromList $ map sumVector $ toRows m
-
 mapRows :: Element a => (Vector a -> b) -> Matrix a -> [b]
 mapRows f m = map f (toRows m)
 
 mapCols :: Element a => (Vector a -> b) -> Matrix a -> [b]
 mapCols f m = map f (toColumns m)
+
+eachRow :: (Element a, Element b) => (Vector a -> Vector b) -> Matrix a -> Matrix b
+eachRow f = fromRows . mapRows f
+
+eachCol :: (Element a, Element b) => (Vector a -> Vector b) -> Matrix a -> Matrix b
+eachCol f = fromColumns . mapCols f
+

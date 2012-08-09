@@ -38,46 +38,86 @@ A linear model should contain the following information:
 -------------
 
 -- |Data type for linear regression options.
-data LMOpts = LMOpts { lmIntercept :: Bool
-                     , lmStandardize :: Bool }
+data LMOpts = LMOpts { fitIntercept :: Bool
+                     , standardizeRegressors :: Bool }
                      deriving (Show)
 
 -- |Standard options for linear regression (used by 'regress').
-stdLMOpts :: LMOpts
-stdLMOpts = LMOpts { lmIntercept = True
-                   , lmStandardize = False }
+stdLMOpts = LMOpts { fitIntercept = True
+                   , standardizeRegressors = False }
 
 -------------------
 -- Linear Models --
 -------------------
 
-data LinearModel t = LM { beta :: Vector t
-                        , covBeta :: Maybe (Matrix t)
-                        , betaCI :: Maybe (Matrix t)
-                        , residuals :: Vector t
-                        , sst :: t
-                        , sse :: t
-                        , mse :: t
-                        , rSq :: t
-                        , tBeta :: Maybe (Vector t)
-                        , pBeta :: Maybe (Vector t)
-                        , fReg :: Maybe t
-                        , pReg :: Maybe t
-                        , lmOpts :: LMOpts }
+data LMType = Normal | Ridge | Lasso deriving (Show)
+
+data LinearModel t = LM { coefs   :: Vector t
+                        , lmIntercept :: Bool
+                        , lmStandardize :: Bool
+                        , lmMean :: Vector t
+                        , lmStd  :: Vector t }
                         deriving (Show)
 
-lm :: (Floating (Vector t), Field t) => Vector t -> Matrix t -> LinearModel t
+data LMStats t = LMStats { covBeta :: Maybe (Matrix t)
+                         , betaCI :: Maybe (Matrix t)
+                         , sst :: t
+                         , sse :: t
+                         , mse :: t
+                         , rSquare :: t
+                         , tBeta :: Maybe (Vector t)
+                         , pBeta :: Maybe (Vector t)
+                         , fRegression :: Maybe t
+                         , pRegression :: Maybe t }
+                         deriving (Show)
+
+lm :: (Floating (Vector t), Field t) => Matrix t -> Vector t -> LinearModel t
 lm = lmWith stdLMOpts
 
-lmWith :: (Floating (Vector t), Field t) => LMOpts -> Vector t -> Matrix t -> LinearModel t
-lmWith opts y x =
-    let x1        = if lmStandardize opts then xs else x where (xs,_,_) = standardize x
-        xx        = if lmIntercept opts then addOnes x1 else x1
-        ybar      = constant (mean y) (dim y)
-        beta      = regress xx y
+lmWith :: (Floating (Vector t), Field t) => LMOpts -> Matrix t -> Vector t -> LinearModel t
+lmWith opts x y = LM { coefs = beta
+                     , lmIntercept = fitIntercept opts
+                     , lmStandardize = standardizeRegressors opts
+                     , lmMean = mu
+                     , lmStd = sigma }
+    where
+        (xx,mu,sigma) = lmPrepare opts x
+        beta          = regress xx y
+
+lmPrepare :: (Floating (Vector t), Fractional t, Element t, Container Vector t) =>
+             LMOpts
+          -> Matrix t
+          -> (Matrix t, Vector t, Vector t)
+lmPrepare opts x = (x3,mu,sigma) 
+    where
+        (x1,mu,sigma) = standardize x
+        x2            = if standardizeRegressors opts then x1 else x
+        x3            = if fitIntercept opts then addOnes x2 else x2
+
+-------------------------------
+-- Predict from linear model --
+-------------------------------
+
+lmPredict :: (Floating (Vector t), Field t) => LinearModel t -> Matrix t -> Vector t
+lmPredict model xx = x2 <> beta
+    where
+        beta    = coefs model
+        xbar    = lmMean model
+        sigma   = lmStd model
+        x1      = if lmStandardize model
+                    then eachRow (\x -> (x - xbar) / sigma) xx
+                    else xx
+        x2      = if lmIntercept model
+                    then addOnes x1
+                    else x1
+
+lmStats :: (Floating (Vector t), Field t) => LinearModel t -> Matrix t -> Vector t -> LMStats t
+lmStats model x y =
+    let ybar      = constant (mean y) (dim y)
+        yhat      = lmPredict model x
+        residuals = y - yhat
         covBeta   = Nothing
         betaCI    = Nothing
-        residuals = y - (xx <> beta)
         sst       = sumVector $ (y - ybar) ^ 2
         sse       = sumVector $ residuals ^ 2
         mse       = sse / fromIntegral (rows x)
@@ -86,17 +126,7 @@ lmWith opts y x =
         pBeta     = Nothing
         fReg      = Nothing
         pReg      = Nothing
-    in LM beta covBeta betaCI residuals sst sse mse rSq tBeta pBeta fReg pReg opts
-
--------------------------------
--- Predict from linear model --
--------------------------------
-
-lmPredict :: (Floating (Vector t), Field t) => LinearModel t -> Matrix t -> Vector t
-lmPredict ( LM { beta = beta, lmOpts = opts } ) x = 
-    let x1 = if lmStandardize opts then xs else x where (xs,_,_) = standardize x
-        xx = if lmIntercept opts then addOnes x1 else x1
-     in xx <> beta
+    in LMStats covBeta betaCI sst sse mse rSq tBeta pBeta fReg pReg
 
 ------------------------
 -- Perform Regression --
@@ -141,14 +171,13 @@ addOnes x = horzcat [ones (rows x) 1, x]
 
 -- |De-mean a sample.
 demean :: (Num (Vector t), Field t) => Matrix t -> Matrix t
-demean x = fromRows $ mapRows (subtract xbar) x
-    where xbar = mean x
+demean x = eachRow (subtract $ mean x) x
 
 -- |Standardize a sample to have zero mean and unit variance.
 standardize :: (Floating (Vector t), Fractional t, Element t) =>
                Matrix t                         -- Data sample
             -> (Matrix t, Vector t, Vector t)   -- Standardized data, mu, sigma
-standardize m = (fromRows $ mapRows (\x -> (x - mu) / sigma) m, mu, sigma)
+standardize m = (eachRow (\x -> (x - mu) / sigma) m, mu, sigma)
     where mu    = mean m
           sigma = std m
 
