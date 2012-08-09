@@ -167,7 +167,7 @@ ridgeRegress x y useConst lambda
     | rows x /= dim y = error "Inconsistent dimensions -- RIDGEREGRESS"
     | otherwise = let (_,n) = size x
                       (_,r) = qr x
-                      rr = takeRows n rr
+                      rr = takeRows n r
                       ww = if useConst
                             then diag (fromList (0 : replicate (n-1) 1))
                             else ident n
