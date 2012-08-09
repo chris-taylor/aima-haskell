@@ -37,6 +37,14 @@ A linear model should contain the following information:
 -- Options --
 -------------
 
+-- |Type recording what kind of linear model we want to build. Choose from
+--  ordinary least squares (OLS), ridge regression with parameter lambda
+--  and LASSO with parameter lambda.
+data LMType t = OLS
+              | Ridge t
+              | LASSO t
+              deriving (Show)
+
 -- |Data type for linear regression options.
 data LMOpts = LMOpts { fitIntercept :: Bool
                      , standardizeRegressors :: Bool }
@@ -49,8 +57,6 @@ stdLMOpts = LMOpts { fitIntercept = True
 -------------------
 -- Linear Models --
 -------------------
-
-data LMType = Normal | Ridge | Lasso deriving (Show)
 
 data LinearModel t = LM { coefs   :: Vector t
                         , lmIntercept :: Bool
@@ -72,17 +78,23 @@ data LMStats t = LMStats { covBeta :: Maybe (Matrix t)
                          deriving (Show)
 
 lm :: (Floating (Vector t), Field t) => Matrix t -> Vector t -> LinearModel t
-lm = lmWith stdLMOpts
+lm = lmWith OLS stdLMOpts
 
-lmWith :: (Floating (Vector t), Field t) => LMOpts -> Matrix t -> Vector t -> LinearModel t
-lmWith opts x y = LM { coefs = beta
-                     , lmIntercept = fitIntercept opts
-                     , lmStandardize = standardizeRegressors opts
-                     , lmMean = mu
-                     , lmStd = sigma }
+lmRidge :: (Floating (Vector t), Field t) => Matrix t -> Vector t -> t -> LinearModel t
+lmRidge x y lambda = lmWith (Ridge lambda) stdLMOpts x y
+
+lmWith :: (Floating (Vector t), Field t) => LMType t -> LMOpts -> Matrix t -> Vector t -> LinearModel t
+lmWith kind opts x y = LM { coefs = beta
+                          , lmIntercept = fitIntercept opts
+                          , lmStandardize = standardizeRegressors opts
+                          , lmMean = mu
+                          , lmStd = sigma }
     where
         (xx,mu,sigma) = lmPrepare opts x
-        beta          = regress xx y
+        beta = case kind of
+            OLS     -> regress xx y
+            Ridge a -> ridgeRegress xx y (fitIntercept opts) a
+            LASSO a -> error "LASSO not implemented."
 
 lmPrepare :: (Floating (Vector t), Fractional t, Element t, Container Vector t) =>
              LMOpts
@@ -148,10 +160,10 @@ regress x y
 ridgeRegress :: (Num (Vector t), Field t) =>
                 Matrix t -- X
              -> Vector t -- y
-             -> t        -- lambda
              -> Bool     -- useConst
+             -> t        -- lambda
              -> Vector t -- beta
-ridgeRegress x y lambda useConst
+ridgeRegress x y useConst lambda
     | rows x /= dim y = error "Inconsistent dimensions -- RIDGEREGRESS"
     | otherwise = let (_,n) = size x
                       (_,r) = qr x
