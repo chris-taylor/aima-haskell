@@ -1,6 +1,7 @@
 module AI.Learning.Resample where
 
 import Control.Monad.Random
+import Foreign.Storable (Storable)
 import Numeric.LinearAlgebra
 import qualified Data.List as L
 
@@ -26,17 +27,17 @@ sampleVector v = do
 
 sampleMatrixRows :: (Element a, RandomGen g) => Matrix a -> Rand g (Matrix a)
 sampleMatrixRows m = do
-    idx <- genBootStrapSample (rows m)
+    idx <- genBootstrapSample (rows m)
     return $ m `subRefRows` idx
 
 sampleMatrixCols :: (Element a, RandomGen g) => Matrix a -> Rand g (Matrix a)
 sampleMatrixCols m = do
-    idx <- genBootStrapSample (cols m)
+    idx <- genBootstrapSample (cols m)
     return $ m `subRefCols` idx
 
 -- |Generate a bootstrap sample of a statistic from a data set of type /a/.
 bootStrapResample :: RandomGen g =>
-                  -> (a -> Rand g a)    -- Sampling function
+                     (a -> Rand g a)    -- Sampling function
                   -> (a -> b)           -- Statistic to be resamples
                   -> Int                -- Number of resamples
                   -> a                  -- Data
