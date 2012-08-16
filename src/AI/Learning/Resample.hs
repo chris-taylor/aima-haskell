@@ -19,6 +19,37 @@ genBootstrapSample sz = go sz []
             i <- getRandomR (0,sz-1)
             go (n - 1) (i:accum)
 
+sampleVector :: (Storable a, RandomGen g) => Vector a -> Rand g (Vector a)
+sampleVector v = do
+    idx <- genBootstrapSample (dim v)
+    return (v `subRefVec` idx)
+
+sampleMatrixRows :: (Element a, RandomGen g) => Matrix a -> Rand g (Matrix a)
+sampleMatrixRows m = do
+    idx <- genBootStrapSample (rows m)
+    return $ m `subRefRows` idx
+
+sampleMatrixCols :: (Element a, RandomGen g) => Matrix a -> Rand g (Matrix a)
+sampleMatrixCols m = do
+    idx <- genBootStrapSample (cols m)
+    return $ m `subRefCols` idx
+
+-- |Generate a bootstrap sample of a statistic from a data set of type /a/.
+bootStrapResample :: RandomGen g =>
+                  -> (a -> Rand g a)    -- Sampling function
+                  -> (a -> b)           -- Statistic to be resamples
+                  -> Int                -- Number of resamples
+                  -> a                  -- Data
+                  -> Rand g [b]
+bootStrapResample sample func nSamples x = go [] nSamples
+    where
+        go samples 0 = return samples
+        go samples n = do
+            x' <- sample x
+            go (func x' : samples) (n-1)
+
+
+
 ----------------------
 -- Cross Validation --
 ----------------------
@@ -90,13 +121,13 @@ kFoldCV_ :: CVPartition
          -> Matrix Double
          -> Vector Double
          -> [Double]
-kFoldCV_ (CVPartition partition) predfun xs ys = L.foldl' go [] partition
+kFoldCV_ (CVPartition partition) predfun x y = L.foldl' go [] partition
     where
-        go scores (i1,i2) =
-            let xTrain = xs `subRefRows` i1
-                yTrain = ys `subRefVec`  i1
-                xTest  = xs `subRefRows` i2
-                yTest  = ys `subRefVec`  i2
+        go scores (trainIdx,testIdx) =
+            let xTrain = x `subRefRows` trainIdx
+                yTrain = y `subRefVec`  trainIdx
+                xTest  = x `subRefRows` testIdx
+                yTest  = y `subRefVec`  testIdx
                 score  = predfun xTrain yTrain xTest yTest
             in score:scores
 
