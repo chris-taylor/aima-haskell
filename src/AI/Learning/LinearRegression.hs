@@ -58,6 +58,9 @@ stdLMOpts = LMOpts { fitIntercept = True
 ---- Linear Models --
 ---------------------
 
+-- |Data type for a linear model. It consists of the coefficient vector,
+--  together with options that specify how to transform any data that is used
+--  to make new predictions.
 data LinearModel = LM { coefs   :: Vector Double
                       , lmIntercept :: Bool
                       , lmStandardize :: Bool
@@ -65,6 +68,7 @@ data LinearModel = LM { coefs   :: Vector Double
                       , lmStd  :: Vector Double }
                       deriving (Show)
 
+-- |Statistics structure for a linear regression.
 data LMStats = LMStats { covBeta :: Maybe (Matrix Double)
                        , betaCI :: Maybe (Matrix Double)
                        , sst :: Double
@@ -77,12 +81,16 @@ data LMStats = LMStats { covBeta :: Maybe (Matrix Double)
                        , pRegression :: Maybe Double }
                        deriving (Show)
 
+-- |Fit an ordinary least squares linear model to data.
 lm :: Matrix Double -> Vector Double -> LinearModel
 lm = lmWith OLS stdLMOpts
 
+-- |Fit a ridge regression (least squares with quadratic penalty) to data.
 lmRidge :: Matrix Double -> Vector Double -> Double -> LinearModel
 lmRidge x y lambda = lmWith (Ridge lambda) stdLMOpts x y
 
+-- |Fit a linear model to data. The exact model fitted is specified by the
+--  'LMType' argument, and the options are specified in 'LMOpts'.
 lmWith :: LMType -> LMOpts -> Matrix Double -> Vector Double -> LinearModel
 lmWith kind opts x y = LM { coefs = beta
                           , lmIntercept = fitIntercept opts
@@ -96,6 +104,8 @@ lmWith kind opts x y = LM { coefs = beta
             Ridge a -> ridgeRegress xx y (fitIntercept opts) a
             LASSO a -> error "LASSO not implemented."
 
+-- |Prepare data according to the specified options structure. This may involve
+--  centering and standardizing the data, or adding a column of constants.
 lmPrepare :: LMOpts
           -> Matrix Double
           -> (Matrix Double, Vector Double, Vector Double)
@@ -109,19 +119,21 @@ lmPrepare opts x = (x3,mu,sigma)
 ---- Predict from linear model --
 ---------------------------------
 
+-- |Make predictions from a linear model.
 lmPredict :: LinearModel -> Matrix Double -> Vector Double
-lmPredict model xx = x2 <> beta
+lmPredict model x = x2 <> beta
     where
         beta    = coefs model
         xbar    = lmMean model
         sigma   = lmStd model
         x1      = if lmStandardize model
-                    then eachRow (\x -> (x - xbar) / sigma) xx
-                    else xx
+                    then eachRow (\x -> (x - xbar) / sigma) x
+                    else x
         x2      = if lmIntercept model
                     then addOnes x1
                     else x1
 
+-- |Calculate statistics for a linear regression.
 lmStats :: LinearModel -> Matrix Double -> Vector Double -> LMStats
 lmStats model x y =
     let ybar      = constant (mean y) (dim y)
@@ -184,11 +196,19 @@ addOnes x = horzcat [ones (rows x) 1, x]
 demean :: Matrix Double -> Matrix Double
 demean x = eachRow (subtract $ mean x) x
 
--- |Standardize a sample to have zero mean and unit variance.
+-- |Standardize a sample to have zero mean and unit variance. Returns a triple
+--  consisting of the standardized sample, the sample mean and the sample
+--  standard deviation.
 standardize :: Matrix Double -> (Matrix Double, Vector Double, Vector Double)
 standardize m = (eachRow (\x -> (x - mu) / sigma) m, mu, sigma)
     where mu    = mean m
           sigma = std m
+
+-- |Standardize a sample to have zero mean and unit variance. This variant of
+--  the function discards the mean and standard deviation vectors, only
+--  returning the standardized sample.
+standardize_ :: Matrix Double -> Matrix Double
+standardize_ x = a where (a,_,_) = standardize x 
 
 -------------------------
 -- Mean, Variance etc. --

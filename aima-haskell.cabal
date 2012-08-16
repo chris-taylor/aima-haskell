@@ -66,6 +66,7 @@ Library
                         AI.Learning.DecisionTree
                         AI.Learning.LinearRegression
                         AI.Learning.RandomForest
+                        AI.Learning.Resample
                         AI.Learning.Example.Students
                         AI.Learning.Example.Restaurant
                         AI.Test.Main

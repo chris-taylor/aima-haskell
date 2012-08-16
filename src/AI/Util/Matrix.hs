@@ -51,3 +51,18 @@ eachRow f = fromRows . mapRows f
 eachCol :: (Element a, Element b) => (Vector a -> Vector b) -> Matrix a -> Matrix b
 eachCol f = fromColumns . mapCols f
 
+------------------------
+-- Subset Referencing --
+------------------------
+
+subRefVec :: Storable a => Vector a -> [Int] -> Vector a
+subRefVec v is = fromList $ map (v@>) is
+
+subRefRows :: Element a => Matrix a -> [Int] -> Matrix a
+subRefRows m is = fromRows $ map (r!!) is where r = toRows m
+
+subRefCols :: Element a => Matrix a -> [Int] -> Matrix a
+subRefCols m is = fromColumns $ map (c!!) is where c = toColumns m
+
+
+
