@@ -8,6 +8,7 @@ import Data.Packed.Vector
 import Numeric.LinearAlgebra
 import Prelude hiding (sum)
 
+import AI.Learning.Resample
 import AI.Util.Matrix
 
 {-
@@ -150,6 +151,15 @@ lmStats model x y =
         fReg      = Nothing
         pReg      = Nothing
     in LMStats covBeta betaCI sst sse mse rSq tBeta pBeta fReg pReg
+
+mseEvalFun :: EvalFun
+mseEvalFun actual predicted = mean $ (actual - predicted) ^ 2
+
+lmPredFun :: PredFun
+lmPredFun xtrain ytrain xtest ytest = mseEvalFun ytest ypred
+    where
+        ypred = lmPredict model xtest
+        model = lm xtrain ytrain
 
 --------------------------
 ---- Perform Regression --
