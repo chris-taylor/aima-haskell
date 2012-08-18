@@ -6,6 +6,7 @@ import Data.List (foldl')
 import Data.Packed.Matrix
 import Data.Packed.Vector
 import Numeric.LinearAlgebra
+import Numeric.LinearAlgebra.Util (ones)
 import Prelude hiding (sum)
 
 import AI.Learning.Resample
