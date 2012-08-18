@@ -65,6 +65,7 @@ Library
                         AI.Learning.Core
                         AI.Learning.DecisionTree
                         AI.Learning.LinearRegression
+                        AI.Learning.LogisticRegression
                         AI.Learning.RandomForest
                         AI.Learning.Resample
                         AI.Learning.Example.Students

@@ -49,8 +49,6 @@ bootStrapResample sample func nSamples x = go [] nSamples
             x' <- sample x
             go (func x' : samples) (n-1)
 
-
-
 ----------------------
 -- Cross Validation --
 ----------------------

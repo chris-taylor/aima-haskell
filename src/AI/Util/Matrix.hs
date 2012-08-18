@@ -4,14 +4,15 @@ module AI.Util.Matrix where
 
 import Foreign.Storable (Storable)
 import Numeric.LinearAlgebra
+import Numeric.LinearAlgebra.Util (ones,zeros)
 
 -- |Create an @rxc@ matrix of zeros.
-zeros :: (Num a, Container Vector a)  => Int -> Int -> Matrix a
-zeros r c = konst 0 (r,c)
+--zeros :: (Num a, Container Vector a)  => Int -> Int -> Matrix a
+--zeros r c = konst 0 (r,c)
 
--- |Create an @rxc@ matrix of ones.
-ones :: (Num a, Container Vector a) => Int -> Int -> Matrix a
-ones r c = konst 1 (r,c)
+---- |Create an @rxc@ matrix of ones.
+--ones :: (Num a, Container Vector a) => Int -> Int -> Matrix a
+--ones r c = konst 1 (r,c)
 
 -- |Return the size of a matrix as a 2-tuple.
 size :: Matrix a -> (Int,Int)
@@ -50,6 +51,12 @@ eachRow f = fromRows . mapRows f
 
 eachCol :: (Element a, Element b) => (Vector a -> Vector b) -> Matrix a -> Matrix b
 eachCol f = fromColumns . mapCols f
+
+sumRows :: (Element a, Num (Vector a)) => Matrix a -> Vector a
+sumRows m = sum $ toRows m
+
+sumCols :: (Element a, Num (Vector a)) => Matrix a -> Vector a
+sumCols m = sum $ toColumns m
 
 ------------------------
 -- Subset Referencing --
