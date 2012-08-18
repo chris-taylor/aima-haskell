@@ -1,5 +1,7 @@
 module AI.Util.Queue where
 
+import qualified Data.Map as M
+
 -- |An abstract Queue class supporting a test for emptiness and push/pop
 --  functions. You can override the function 'extend' for performance reasons.
 class Queue q where
@@ -55,18 +57,14 @@ instance Queue FifoQueue where
 
 data FifoQueue a = FifoQueue [a] [a]
 
--- |A priority queue implemented as an association list. This is inefficient
---  as the complexity of push is O(n), as opposed to O(log n) if we used a
---  tree representation.
+
+-- |A priority queue implemented as a map. Both pop and push have O(log n)
+--  complexity.
 instance Ord k => Queue (PriorityQueue k) where
     newQueue = undefined
-    empty  (PQueue q _) = null q
-    pop    (PQueue q f) = (snd (head q), PQueue (tail q) f)
-    push x (PQueue q f) = PQueue (ins (f x) x q) f
-        where
-            ins k x []              = [(k, x)]
-            ins k x ((k',v) : rest) = if k < k'
-                then (k,x) : (k',v) : rest
-                else (k',v) : ins k x rest
+    empty  (PQueue q _) = M.null q
+    pop    (PQueue q f) = (snd minAssoc,PQueue rest f)
+        where (minAssoc,rest) = M.deleteFindMin q
+    push x (PQueue q f) = PQueue (M.insert (f x) x q) f
 
-data PriorityQueue k a = PQueue { pqueue :: [(k,a)], keyfun :: a -> k }
+data PriorityQueue k a = PQueue { pqueue :: M.Map k a, keyfun :: a -> k }
