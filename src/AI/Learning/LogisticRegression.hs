@@ -76,10 +76,9 @@ lrLogLikRegularized y x useConst lambda theta = (cost, grad)
     where
         m = fromIntegral (rows x)
         h = sigmoid $ x <> theta
-        w = if useConst
-            then join [0, constant 1 (dim theta - 1)]
-            else constant 1 (dim theta)
-        theta' = w * theta
+        theta' = if useConst
+                    then join [0, dropVector 1 theta]
+                    else theta
         cost   = sumVector (y * log h + (1-y) * log (1-h)) / m + (sumVector $ mapVector (^2) theta') / (2 * m)
         grad   = (1/m `scale` (y - h) <> x) + (lambda / m) `scale` theta'
 

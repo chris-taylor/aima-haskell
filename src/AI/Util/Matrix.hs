@@ -4,15 +4,6 @@ module AI.Util.Matrix where
 
 import Foreign.Storable (Storable)
 import Numeric.LinearAlgebra
-import Numeric.LinearAlgebra.Util (ones,zeros)
-
--- |Create an @rxc@ matrix of zeros.
---zeros :: (Num a, Container Vector a)  => Int -> Int -> Matrix a
---zeros r c = konst 0 (r,c)
-
----- |Create an @rxc@ matrix of ones.
---ones :: (Num a, Container Vector a) => Int -> Int -> Matrix a
---ones r c = konst 1 (r,c)
 
 -- |Return the size of a matrix as a 2-tuple.
 size :: Matrix a -> (Int,Int)
@@ -29,6 +20,12 @@ vertcat = fromBlocks . map return
 --------------------------
 -- Functions on Vectors --
 --------------------------
+
+takeVector :: Storable a => Int -> Vector a -> Vector a
+takeVector n v = subVector 0 n v
+
+dropVector :: Storable a => Int -> Vector a -> Vector a
+dropVector n v = subVector n (dim v - n) v
 
 sumVector :: (Num a, Storable a) => Vector a -> a
 sumVector xs = foldVector (+) 0 xs
