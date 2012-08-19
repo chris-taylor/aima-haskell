@@ -1,4 +1,13 @@
-module AI.Util.Queue where
+module AI.Util.Queue
+    (
+    -- * Type class and queue functions
+    Queue (..)
+    , notEmpty
+    -- * Queue instances
+    , FifoQueue
+    , PriorityQueue
+    , newPriorityQueue
+    ) where
 
 import qualified Data.Map as M
 
@@ -57,7 +66,6 @@ instance Queue FifoQueue where
 
 data FifoQueue a = FifoQueue [a] [a]
 
-
 -- |A priority queue implemented as a map. Both pop and push have O(log n)
 --  complexity.
 instance Ord k => Queue (PriorityQueue k) where
@@ -68,3 +76,6 @@ instance Ord k => Queue (PriorityQueue k) where
     push x (PQueue q f) = PQueue (M.insert (f x) x q) f
 
 data PriorityQueue k a = PQueue { pqueue :: M.Map k a, keyfun :: a -> k }
+
+newPriorityQueue :: (a -> k) -> PriorityQueue k a
+newPriorityQueue f = PQueue M.empty f
