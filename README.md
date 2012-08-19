@@ -107,7 +107,7 @@ To do:
 
 ### 12. Knowledge Representation
 
-## Uncertain Knowledge and Reasoning
+## Part IV. Uncertain Knowledge and Reasoning
 
 ### 14. Probabilistic Reasoning
 
