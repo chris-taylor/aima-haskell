@@ -68,9 +68,6 @@
 
 ## Learning
 
-- Prune decision trees using
-  - Max number of nodes
-  - Significance test at nodes
 - More functions to auto-fit decision trees
 - Decision tree demos are really slow - can they be optimized? In particular, computing the entropy for splits takes a long time.
 - Cross validation should return average validation set error rate
@@ -78,5 +75,7 @@
 - Compute precision, recall and f-statistic
 - Function to compare multiple classifiers
 - More examples - test random forest vs. pruned decision trees
+- Tests for linear/logistic regression and regularized regression
+- LASSO
 - Linear classifiers
 - Naive Bayes
