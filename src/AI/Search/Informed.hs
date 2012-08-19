@@ -1,5 +1,7 @@
 module AI.Search.Informed where
 
+import qualified Data.Map as M
+
 import AI.Search.Core
 import AI.Util.Queue
 
@@ -18,7 +20,7 @@ bestFirstTreeSearch :: (Problem p s a) =>
                        Heuristic s a    -- ^ Function to score each node
                     -> p s a            -- ^ Problem
                     -> Maybe (Node s a)
-bestFirstTreeSearch f = treeSearch (PQueue [] f)
+bestFirstTreeSearch f = treeSearch (PQueue M.empty f)
 
 -- |Best-first graph search keeps track of states that have already been visited
 --  and won't visit the same state twice.
@@ -26,7 +28,7 @@ bestFirstGraphSearch :: (Problem p s a, Ord s) =>
                         Heuristic s a   -- ^ Function to score each node
                      -> p s a           -- ^ Problem
                      -> Maybe (Node s a)
-bestFirstGraphSearch f = graphSearch (PQueue [] f)
+bestFirstGraphSearch f = graphSearch (PQueue M.empty f)
 
 -- |Minimum cost search preferentially explores nodes with the lowest cost
 --  accrued, to guarantee that it finds the best path to the solution.
