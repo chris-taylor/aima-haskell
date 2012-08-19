@@ -34,7 +34,6 @@ lr y x = fst $ minimizeVD VectorBFGS2 prec niter sz1 tol cost grad theta0
 
 -- |Cost function and derivative for logistic regression. This is maximized when
 --  fitting parameters for the regression.
---  simply the 
 lrLogLikelihood :: Vector Double             -- targets (y)
                -> Matrix Double             -- design matrix (x)
                -> Vector Double             -- coefficients (theta)
