@@ -148,12 +148,12 @@ Completed:
 
 - Decision Tree Learning (Fig 18.5)
 - Cross-Validation (Fig 18.8)
+- Linear regression
+- Logistic regression
 
 To do:
 
 - Decision List Learning (Fig 18.11)
-- Linear regression
-- Logistic regression
 - Artificial Neural Networks
 - Back Prop Learning (Fig 18.24)
 - Nearest Neighbour
