@@ -22,15 +22,8 @@ import AI.Util.Matrix
 lr :: Vector Double    -- targets (y)
    -> Matrix Double    -- design matrix (x)
    -> Vector Double    -- coefficient vector (theta)
-lr y x = fst $ minimizeVD VectorBFGS2 prec niter sz1 tol cost grad theta0
-    where
-        prec    = 1e-9
-        niter   = 1000
-        sz1     = 0.1
-        tol     = 0.1
-        cost    = negate . fst . lrLogLikelihood y x -- negate because we call minimize
-        grad    = negate . snd . lrLogLikelihood y x
-        theta0  = constant 0 (cols x)
+lr y x = lrHelper (lrLogLikelihood y x) theta0
+    where theta0  = constant 0 (cols x)
 
 -- |Regularized logistic regression with quadratic penalty on the coefficients.
 --  You should standardize the coefficients of the design matrix before using
@@ -41,22 +34,30 @@ lrRegularized :: Vector Double  -- targets (y)
               -> Bool           -- first column of design matrix is all ones?
               -> Double         -- regularization constant (lambda)
               -> Vector Double  -- coefficient vector (theta)
-lrRegularized y x useConst lambda = fst $ minimizeVD VectorBFGS2 prec niter sz1 tol cost grad theta0
+lrRegularized y x useConst lambda = lrHelper costfun theta0
+    where
+        costfun = lrLogLikRegularized y x useConst lambda
+        theta0  = constant 0 (cols x)
+
+-- |Helper function for logistic regressions. The first argument is a function
+--  that returns the cost and gradient for a given vector of parameters, and
+--  the second is the initial set of parameters to use.
+lrHelper :: (Vector Double -> (Double, Vector Double)) -> Vector Double -> Vector Double
+lrHelper fun theta0 = fst $ minimizeVD VectorBFGS2 prec niter sz1 tol cost grad theta0
     where
         prec    = 1e-9
         niter   = 1000
         sz1     = 0.1
         tol     = 0.1
-        cost    = negate . fst . lrLogLikRegularized y x useConst lambda
-        grad    = negate . snd . lrLogLikRegularized y x useConst lambda
-        theta0  = constant 0 (cols x)
+        cost    = negate . fst . fun -- negate because we call minimize
+        grad    = negate . snd . fun
 
 -- |Cost function and derivative for logistic regression. This is maximized when
 --  fitting parameters for the regression.
 lrLogLikelihood :: Vector Double             -- targets (y)
-               -> Matrix Double             -- design matrix (x)
-               -> Vector Double             -- coefficients (theta)
-               -> (Double, Vector Double)   -- (value, derivative)
+                -> Matrix Double             -- design matrix (x)
+                -> Vector Double             -- coefficients (theta)
+                -> (Double, Vector Double)   -- (value, derivative)
 lrLogLikelihood y x theta = (cost, grad)
     where
         m    = fromIntegral (rows x)    -- For computing average
@@ -66,21 +67,19 @@ lrLogLikelihood y x theta = (cost, grad)
 
 -- |Cost function and derivative for regularized logistic regression. This is
 --  maximized when fitting parameters for the regression.
-lrLogLikRegularized :: Vector Double
-                    -> Matrix Double
-                    -> Bool
-                    -> Double
-                    -> Vector Double
-                    -> (Double, Vector Double)
+lrLogLikRegularized :: Vector Double            -- targets (y)
+                    -> Matrix Double            -- design matrix (x)
+                    -> Bool                     -- is first col all ones?
+                    -> Double                   -- regularization const (lambda)
+                    -> Vector Double            -- coefficients (theta)
+                    -> (Double, Vector Double)  -- (value, derivative)
 lrLogLikRegularized y x useConst lambda theta = (cost, grad)
     where
         m = fromIntegral (rows x)
-        h = sigmoid $ x <> theta
-        theta' = if useConst
-                    then join [0, dropVector 1 theta]
-                    else theta
-        cost   = sumVector (y * log h + (1-y) * log (1-h)) / m + (sumVector $ mapVector (^2) theta') / (2 * m)
-        grad   = (1/m `scale` (y - h) <> x) + (lambda / m) `scale` theta'
+        (c,g)  = lrLogLikelihood y x theta
+        theta' = if useConst then join [0, dropVector 1 theta] else theta
+        cost   = c - (lambda / (2 * m)) * norm theta' ^ 2
+        grad   = g - (lambda / m) `scale` theta'
 
 -- |Vectorized sigmoid function, sigmoid(x) = 1 / ( 1 + exp(-x) )
 sigmoid :: Vector Double -> Vector Double
@@ -90,19 +89,21 @@ sigmoid v = sigmoid' `mapVector` v where sigmoid' x = 1 / (1 + exp (-x))
 -- Testing --
 -------------
 
-test n k = do
+test n k lambda = do
     x <- randn n k                  -- design matrix
     e <- flatten `fmap` randn n 1   -- errors
     let theta = fromList $ 1 : replicate (k-1) 0
         h = sigmoid $ x <> theta + e
         y = (\i -> if i > 0.5 then 1 else 0) `mapVector` h
-        theta_est = lr y x
-    putStrLn $ "[y, h, x]"
-    disp 3 $ takeRows 10 $ fromColumns [y, h] ! x
-    putStrLn $ "[y, h, ypred]"
-    disp 3 $ takeRows 10 $ fromColumns [y, h, sigmoid $ x <> theta_est]
-    putStrLn $ "Number of observations: " ++ show n
-    putStrLn $ "  Number of regressors: " ++ show k
-    putStrLn $ "   Actual theta: " ++ show theta
-    putStrLn $ "Estimated theta: " ++ show theta_est
+        theta_est1 = lr y x
+        theta_est2 = lrRegularized y x False lambda
+    --putStrLn $ "[y, h, x]"
+    --disp 3 $ takeRows 10 $ fromColumns [y, h] ! x
+    --putStrLn $ "[y, h, ypred]"
+    --disp 3 $ takeRows 10 $ fromColumns [y, h, sigmoid $ x <> theta_est1]
+    putStrLn $ "         Number of observations: " ++ show n
+    putStrLn $ "           Number of regressors: " ++ show k
+    putStrLn $ "                   Actual theta: " ++ show theta
+    putStrLn $ "Estimated theta (unregularized): " ++ show theta_est1
+    putStrLn $ "  Estimated theta (regularized): " ++ show theta_est2
 
