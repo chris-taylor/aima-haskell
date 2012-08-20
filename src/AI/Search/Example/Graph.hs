@@ -264,11 +264,11 @@ demo1 = compareSearchers allSearchers probs header allSearcherNames >> return ()
 -- |Load ten example problems from a file and run all searchers over them.
 demo2 :: IO ()
 demo2 = do
-    ps <- readGraphProblems "data\\problems_small.txt"
+    ps <- readGraphProblems "data/problems_small.txt"
     mapM_ runDetailedCompare ps
 
 -- |Load 100 example problems from a file and run all searchers over them.
 demo3 :: IO ()
 demo3 = do
-    ps <- readGraphProblems "data\\problems_large.txt"
+    ps <- readGraphProblems "data/problems_large.txt"
     mapM_ runDetailedCompare ps
