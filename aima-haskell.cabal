@@ -15,7 +15,8 @@ Category:           Language
 Extra-Source-Files: README.md
                     LICENSE
 
-Data-Files:         
+Data-Files:         data/problems_small.txt
+                    data/problems_large.txt
 
 Source-Repository head
     Type:           git
