@@ -199,10 +199,6 @@ ridgeRegress x y useConst lambda
 ---- Utilities --
 -----------------
 
--- |Add a column of ones to a matrix.
-addOnes :: Matrix Double -> Matrix Double
-addOnes x = horzcat [ones (rows x) 1, x]
-
 -- |De-mean a sample.
 demean :: Matrix Double -> Matrix Double
 demean x = eachRow (subtract $ mean x) x

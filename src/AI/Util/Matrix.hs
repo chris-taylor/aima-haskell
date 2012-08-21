@@ -17,6 +17,10 @@ horzcat = fromBlocks . return
 vertcat :: Element a => [Matrix a] -> Matrix a
 vertcat = fromBlocks . map return
 
+-- |Add a column of ones to a matrix.
+addOnes :: Matrix Double -> Matrix Double
+addOnes x = fromBlocks [[1, x]]
+
 --------------------------
 -- Functions on Vectors --
 --------------------------
