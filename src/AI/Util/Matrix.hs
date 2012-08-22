@@ -59,6 +59,9 @@ sumRows m = sum $ toRows m
 sumCols :: (Element a, Num (Vector a)) => Matrix a -> Vector a
 sumCols m = sum $ toColumns m
 
+sumMatrix :: Matrix Double -> Double
+sumMatrix = sumVector . sum . toRows
+
 ------------------------
 -- Subset Referencing --
 ------------------------
