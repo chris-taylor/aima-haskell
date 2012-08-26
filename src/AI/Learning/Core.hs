@@ -36,6 +36,18 @@ crossValidate :: Eq b =>
 crossValidate builder xTrain yTrain xTest yTest =
   let predfun = builder xTrain yTrain
    in mcr predfun xTest yTest
+   
+---------------
+-- Utilities --
+---------------
+
+-- |Sigmoid function:
+--
+--  > sigmoid x = 1 / (1 + exp (-x))
+--
+--  Used in the logistic regression and neural network modules.
+sigmoid :: Floating a => a -> a
+sigmoid x = 1 / (1 + exp (-x))
 
 -----------------------------
 -- K-Fold Cross-Validation --

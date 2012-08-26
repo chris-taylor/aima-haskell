@@ -16,6 +16,7 @@ import Numeric.LinearAlgebra.Util
 import Numeric.GSL.Minimization
 import System.IO.Unsafe
 
+import AI.Learning.Core (sigmoid)
 import AI.Util.Matrix
 
 -----------------------
@@ -48,10 +49,6 @@ fromVector (k,h,l) vec = NN theta0 theta1
 
 toVector :: Matrix Double -> Matrix Double -> Vector Double
 toVector theta0 theta1 = join [flatten theta0, flatten theta1]
-
--- |Sigmoid function that acts on matrices.
-sigmoid :: Floating a => a -> a
-sigmoid x = 1 / (1 + exp (-x))
 
 ----------------------
 -- NN Train/Predict --

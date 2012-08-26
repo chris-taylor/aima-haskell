@@ -4,6 +4,7 @@ import Numeric.LinearAlgebra
 import Numeric.LinearAlgebra.Util
 import Numeric.GSL.Minimization
 
+import AI.Learning.Core (sigmoid)
 import AI.Util.Matrix
 
 -- |Multivariate logistic regression. Given a vector /y/ of target variables and
@@ -80,10 +81,6 @@ lrLogLikRegularized y x useConst lambda theta = (cost, grad)
         theta' = if useConst then join [0, dropVector 1 theta] else theta
         cost   = c - (lambda / (2 * m)) * norm theta' ^ 2
         grad   = g - (lambda / m) `scale` theta'
-
--- |Vectorized sigmoid function, sigmoid(x) = 1 / ( 1 + exp(-x) )
-sigmoid :: Vector Double -> Vector Double
-sigmoid v = sigmoid' `mapVector` v where sigmoid' x = 1 / (1 + exp (-x))
 
 -------------
 -- Testing --
