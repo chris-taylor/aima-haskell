@@ -1,6 +1,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module AI.Learning.NeuralNetwork where
+module AI.Learning.NeuralNetwork
+    (
+      -- * Representation
+      NeuralNetwork (..)
+    , NNShape
+      -- * Prediction and Training
+    , nnPredict
+    , nnTrain
+    ) where
 
 import Control.Monad.Random hiding (fromList)
 import Numeric.LinearAlgebra
@@ -26,6 +34,7 @@ import AI.Util.Matrix
 --  H * (K + L + 1) + L
 data NeuralNetwork = NN (Matrix Double) (Matrix Double)
 
+-- |Three-tuple describing the shape of a network: (input, hidden, output).
 type NNShape = (Int,Int,Int)
 
 instance Show NeuralNetwork where
@@ -109,6 +118,9 @@ nnCostGradient shape y x lambda vec = (cost, grad)
 
         normMatrix m = sumMatrix $ (dropRows 1 m) ^ 2
         insertNils m = vertcat [0, dropRows 1 m]
+
+nnCost shape y x lambda = fst . nnCostGradient shape y x lambda
+nnGrad shape y x lambda = snd . nnCostGradient shape y x lambda
 
 -- |Use central differencing to compute an approximation to the gradient
 --  vector for a neural network. This is mainly used for checking the
