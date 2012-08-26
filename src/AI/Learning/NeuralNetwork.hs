@@ -131,28 +131,42 @@ nnGradApprox shape y x lambda vec = fromList $ g `map` [0..n-1]
         g i = (f (vec + e i) - f (vec - e i)) / (2*h)
         e i = fromList $ replicate i 0 ++ [h] ++ replicate (n-i-1) 0
 
--- |Train a neural network from input vectors.
+-- |Train a neural network from a training set. Note that you must supply
+--  an initial vector of weights. Supplying initial weights all equal to
+--  zero will generally give poor performance.
+nnTrain :: Int              -- number of hidden neurons
+        -> Matrix Double    -- y
+        -> Matrix Double    -- x
+        -> Double           -- lambda
+        -> Vector Double    -- initial weights
+        -> NeuralNetwork
+nnTrain h y x lambda vec0 = fromVector shape vec
+    where
+        shape = (cols x, h, cols y)
+        vec   = fst $ minimizeVD VectorBFGS2 prec niter sz1 tol cost grad vec0
+        prec  = 1e-9
+        niter = 1000
+        sz1   = 0.1
+        tol   = 0.1
+        cost  = fst . nnCostGradient shape y x lambda
+        grad  = snd . nnCostGradient shape y x lambda
+
+-- |Train a neural network from a training set.
 --
 --  Note that this is implemented as an IO action, because it randomly sets the
 --  weights in the network before performing numerical optimization (this is to
 --  break the symmetry that exists in the network when all weights are zero).
---
 --  As a result, it is possible to get different results when training the
---  network multiple times with the same data. In the future I will split this
---  into a function that trains the network given initial weights, and a function
---  that randomly generates the weights first. Should also have the ability to
---  do partial updating of network weights, to allow for online training.
-nnTrain :: NNShape -> Matrix Double -> Matrix Double -> Double -> IO NeuralNetwork
-nnTrain shape y x lambda = do
-    let prec    = 1e-9
-        niter   = 1000
-        sz1     = 0.1
-        tol     = 0.1
-        cost    = fst . nnCostGradient shape y x lambda
-        grad    = snd . nnCostGradient shape y x lambda
-    vec0 <- initialVec shape
-    let vec = fst $ minimizeVD VectorBFGS2 prec niter sz1 tol cost grad vec0
-    return $ fromVector shape vec
+--  network multiple times with the same data.
+nnTrainR :: Int              -- number of hidden neurons
+         -> Matrix Double    -- y
+         -> Matrix Double    -- x
+         -> Double           -- lambda
+         -> IO NeuralNetwork
+nnTrainR h y x lambda = do
+    let shape = (cols x, h, cols y)
+    v <- initialVec shape
+    return (nnTrain h y x lambda v)
 
 -- |Choose initial random weights for a neural network.
 initialVec :: NNShape -> IO (Vector Double)
@@ -216,7 +230,7 @@ test n lambda = do
     x <- rand n 2
     e <- fmap (0.01*) (rand n 1)
     let y = mapMatrix (\x -> if x > 0.5 then 1.0 else 0.0) (xor x)
-    nn <- nnTrain (2,4,1) y x lambda
+    nn <- nnTrainR 4 y x lambda
     let ypred = nnPredict nn x
     -- Show predictions
     putStrLn "Predictions:"
