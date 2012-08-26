@@ -23,12 +23,12 @@ addOnes :: Matrix Double -> Matrix Double
 addOnes x = fromBlocks [[1, x]]
 
 -- |Create a row matrix.
-row :: Vector Double -> Matrix Double
-row v = fromRows [v]
+row :: [Double] -> Matrix Double
+row = asRow . fromList
 
 -- |Create a column matrix.
-column :: Vector Double -> Matrix Double
-column v = fromColumns [v]
+column :: [Double] -> Matrix Double
+column = asColumn . fromList
 
 --------------------------
 -- Functions on Vectors --

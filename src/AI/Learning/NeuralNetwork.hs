@@ -208,7 +208,7 @@ testCostGradient = do
     putStrLn "Cost (should be around 0.0890)"
     print cost
     putStrLn "Gradient (should be -0.0100, -0.0043, -0.0053, -0.0019, -0.0051, -0.0019, -0.0755, -0.0744, -0.0751)"
-    disp 4 (column grad)
+    disp 4 (asColumn grad)
 
 test :: Int -> Double -> IO ()
 test n lambda = do
@@ -230,5 +230,5 @@ test n lambda = do
     disp 2 $ horzcat [xx,yy]
     
 xor :: Matrix Double -> Matrix Double
-xor x = let [u,v] = toColumns x in column (u + v - 2 * u * v)
+xor x = let [u,v] = toColumns x in asColumn (u + v - 2 * u * v)
     
