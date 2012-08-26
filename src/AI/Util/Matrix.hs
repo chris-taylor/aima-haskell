@@ -2,6 +2,7 @@
 
 module AI.Util.Matrix where
 
+import Control.Monad.Random hiding (fromList)
 import Foreign.Storable (Storable)
 import Numeric.LinearAlgebra
 
@@ -20,6 +21,14 @@ vertcat = fromBlocks . map return
 -- |Add a column of ones to a matrix.
 addOnes :: Matrix Double -> Matrix Double
 addOnes x = fromBlocks [[1, x]]
+
+-- |Create a row matrix.
+row :: Vector Double -> Matrix Double
+row v = fromRows [v]
+
+-- |Create a column matrix.
+column :: Vector Double -> Matrix Double
+column v = fromColumns [v]
 
 --------------------------
 -- Functions on Vectors --
@@ -74,6 +83,4 @@ subRefRows m is = fromRows $ map (r!!) is where r = toRows m
 
 subRefCols :: Element a => Matrix a -> [Int] -> Matrix a
 subRefCols m is = fromColumns $ map (c!!) is where c = toColumns m
-
-
 
