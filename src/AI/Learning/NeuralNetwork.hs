@@ -8,6 +8,7 @@ module AI.Learning.NeuralNetwork
       -- * Prediction and Training
     , nnPredict
     , nnTrain
+    , nnTrainR
     ) where
 
 import Control.Monad.Random hiding (fromList)
