@@ -13,7 +13,10 @@ module AI.Search.Core (
     , graphSearch
     -- * Algorithm comparison
     , compareSearchers
-    , detailedCompareSearchers ) where
+    , detailedCompareSearchers
+    -- * Algorithm tracking
+    , ProblemIO
+    , mkProblemIO) where
 
 import Control.DeepSeq
 import Control.Monad

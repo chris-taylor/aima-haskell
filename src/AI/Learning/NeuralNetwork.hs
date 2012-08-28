@@ -3,21 +3,19 @@
 module AI.Learning.NeuralNetwork
     (
       -- * Representation
-      NeuralNetwork (..)
-    , NNShape
+      NeuralNetwork
       -- * Prediction and Training
     , nnPredict
     , nnTrain
-    , nnTrainR
+    , nnTrainIO
     ) where
 
 import Control.Monad.Random hiding (fromList)
 import Numeric.LinearAlgebra
 import Numeric.LinearAlgebra.Util
-import Numeric.GSL.Minimization
 import System.IO.Unsafe
 
-import AI.Learning.Core (sigmoid)
+import AI.Learning.Core
 import AI.Util.Matrix
 
 -----------------------
@@ -28,12 +26,12 @@ import AI.Util.Matrix
 --  has K input nodes, H hidden nodes and L output layers then the dimensions
 --  of the matrices theta0 and theta1 are
 --
---  * size theta0 = (K+1) x H
---  * size theta1 = (H+1) x L
+--  * size Layer1 = (K+1) x H
+--  * size Layer2 = (H+1) x L
 --
 --  the (+1)s account for the addition of bias nodes in the input layer and
 --  the hidden layer. Therefore the total number of parameters is
---  H * (K + L + 1) + L
+--  H * (K + L) + H + L
 data NeuralNetwork = NN (Matrix Double) (Matrix Double)
 
 -- |Three-tuple describing the shape of a network: (input, hidden, output).
@@ -58,6 +56,46 @@ toVector theta0 theta1 = join [flatten theta0, flatten theta1]
 -- |Make predictions using a neural network.
 nnPredict :: NeuralNetwork -> Matrix Double -> Matrix Double
 nnPredict nn x = h where (_,_,h) = nnForwardProp nn x
+
+-- |Train a neural network from a training set. Note that you must supply
+--  an initial vector of weights. Supplying initial weights all equal to
+--  zero will generally give poor performance.
+nnTrain :: Int              -- number of hidden neurons
+        -> Matrix Double    -- y
+        -> Matrix Double    -- x
+        -> Double           -- lambda
+        -> Vector Double    -- initial weights
+        -> NeuralNetwork
+nnTrain h y x lambda initialVec = fromVector shape vec
+    where shape = (cols x, h, cols y)
+          vec   = minimizeS cost grad initialVec
+          cost  = fst . nnCostGradient shape y x lambda
+          grad  = snd . nnCostGradient shape y x lambda
+
+-- |Train a neural network from a training set.
+--
+--  Note that this is implemented as an IO action, because it randomly sets the
+--  weights in the network before performing numerical optimization (this is to
+--  break the symmetry that exists in the network when all weights are zero).
+--  As a result, it is possible to get different results when training the
+--  network multiple times with the same data.
+nnTrainIO :: Int              -- number of hidden neurons
+          -> Matrix Double    -- y
+          -> Matrix Double    -- x
+          -> Double           -- lambda
+          -> IO NeuralNetwork
+nnTrainIO h y x lambda = nnTrain h y x lambda `fmap` initialVec (cols x, h, cols y)
+
+-- |Choose initial random weights for a neural network.
+initialVec :: NNShape -> IO (Vector Double)
+initialVec (k,h,l) = do
+    let len = h * (k + l) + h + l
+    xs <- getRandomRs (0.0, 0.01)
+    return . fromList $ take len xs
+
+------------------------------
+-- Forward/Back Propagation --
+------------------------------
 
 -- |Perform forward propagation through a neural network, returning the matrices
 --  created in the process.
@@ -132,50 +170,6 @@ nnGradApprox shape y x lambda vec = fromList $ g `map` [0..n-1]
         g i = (f (vec + e i) - f (vec - e i)) / (2*h)
         e i = fromList $ replicate i 0 ++ [h] ++ replicate (n-i-1) 0
 
--- |Train a neural network from a training set. Note that you must supply
---  an initial vector of weights. Supplying initial weights all equal to
---  zero will generally give poor performance.
-nnTrain :: Int              -- number of hidden neurons
-        -> Matrix Double    -- y
-        -> Matrix Double    -- x
-        -> Double           -- lambda
-        -> Vector Double    -- initial weights
-        -> NeuralNetwork
-nnTrain h y x lambda vec0 = fromVector shape vec
-    where
-        shape = (cols x, h, cols y)
-        vec   = fst $ minimizeVD VectorBFGS2 prec niter sz1 tol cost grad vec0
-        prec  = 1e-9
-        niter = 1000
-        sz1   = 0.1
-        tol   = 0.1
-        cost  = fst . nnCostGradient shape y x lambda
-        grad  = snd . nnCostGradient shape y x lambda
-
--- |Train a neural network from a training set.
---
---  Note that this is implemented as an IO action, because it randomly sets the
---  weights in the network before performing numerical optimization (this is to
---  break the symmetry that exists in the network when all weights are zero).
---  As a result, it is possible to get different results when training the
---  network multiple times with the same data.
-nnTrainR :: Int              -- number of hidden neurons
-         -> Matrix Double    -- y
-         -> Matrix Double    -- x
-         -> Double           -- lambda
-         -> IO NeuralNetwork
-nnTrainR h y x lambda = do
-    let shape = (cols x, h, cols y)
-    v <- initialVec shape
-    return (nnTrain h y x lambda v)
-
--- |Choose initial random weights for a neural network.
-initialVec :: NNShape -> IO (Vector Double)
-initialVec (k,h,l) = do
-    let len = h * (k + l) + h + l
-    xs <- getRandomRs (0.0, 0.01)
-    return . fromList $ take len xs
-
 -------------
 -- Testing --
 -------------
@@ -231,7 +225,7 @@ test n lambda = do
     x <- rand n 2
     e <- fmap (0.01*) (rand n 1)
     let y = mapMatrix (\x -> if x > 0.5 then 1.0 else 0.0) (xor x)
-    nn <- nnTrainR 4 y x lambda
+    nn <- nnTrainIO 4 y x lambda
     let ypred = nnPredict nn x
     -- Show predictions
     putStrLn "Predictions:"

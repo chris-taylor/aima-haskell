@@ -101,59 +101,59 @@ forestBuilder nTree nAtt as bs a = do
 -- Demo of the decision tree library --
 ---------------------------------------
 
-runWithNoise :: RandomGen g =>
-       Builder Restaurant Bool
-    -> Int
-    -> Int
-    -> Float
-    -> Rand g Float
-runWithNoise builder nTrain nTest noise = do
-  xTrain <- randomDataSetNoisy noise nTrain
-  xTest  <- randomDataSetNoisy noise nTest
-  let yTrain = map willWait xTrain
-      yTest  = map willWait xTest
-  return (crossValidate builder xTrain yTrain xTest yTest)
+--runWithNoise :: RandomGen g =>
+--       Builder Restaurant Bool
+--    -> Int
+--    -> Int
+--    -> Float
+--    -> Rand g Float
+--runWithNoise builder nTrain nTest noise = do
+--  xTrain <- randomDataSetNoisy noise nTrain
+--  xTest  <- randomDataSetNoisy noise nTest
+--  let yTrain = map willWait xTrain
+--      yTest  = map willWait xTest
+--  return (crossValidate builder xTrain yTrain xTest yTest)
 
-runNoNoise :: RandomGen g =>
-        Int
-     -> Int
-     -> Rand g Float
-runNoNoise nTrain nTest = do
-  xTrain <- randomDataSet nTrain
-  xTest  <- randomDataSet nTest
-  let yTrain = map willWait xTrain
-      yTest  = map willWait xTest
-  return (crossValidate treeBuilder xTrain yTrain xTest yTest)
+--runNoNoise :: RandomGen g =>
+--        Int
+--     -> Int
+--     -> Rand g Float
+--runNoNoise nTrain nTest = do
+--  xTrain <- randomDataSet nTrain
+--  xTest  <- randomDataSet nTest
+--  let yTrain = map willWait xTrain
+--      yTest  = map willWait xTest
+--  return (crossValidate treeBuilder xTrain yTrain xTest yTest)
 
-demo2 :: Float -> IO ()
-demo2 noise = do
-  vals <- evalRandIO $ do
-    let ns = [1..100]
-    mcrs <- forM ns $ \n -> do
-      sampleMcrs <- replicateM 100 $ runWithNoise treeBuilder n 100 noise
-      return (mean sampleMcrs)
-    return (zip ns $ map (*100) mcrs)
+--demo2 :: Float -> IO ()
+--demo2 noise = do
+--  vals <- evalRandIO $ do
+--    let ns = [1..100]
+--    mcrs <- forM ns $ \n -> do
+--      sampleMcrs <- replicateM 100 $ runWithNoise treeBuilder n 100 noise
+--      return (mean sampleMcrs)
+--    return (zip ns $ map (*100) mcrs)
 
-  let xlabel = G.XLabel "Size of test set"
-      ylabel = G.YLabel "Misclassification Rate (%)"
-      title  = G.Title  "Decision Tree Demo (Restaurants)"
+--  let xlabel = G.XLabel "Size of test set"
+--      ylabel = G.YLabel "Misclassification Rate (%)"
+--      title  = G.Title  "Decision Tree Demo (Restaurants)"
 
-  G.plotList [xlabel,ylabel,title] vals
+--  G.plotList [xlabel,ylabel,title] vals
 
-demo1 :: IO ()
-demo1 = do
-  vals <- evalRandIO $ do
-    let ns = [1..100]
-    mcrs <- forM ns $ \n -> do
-      sampleMcrs <- replicateM 100 $ runNoNoise n 100
-      return (mean sampleMcrs)
-    return (zip ns $ map (*100) mcrs)
+--demo1 :: IO ()
+--demo1 = do
+--  vals <- evalRandIO $ do
+--    let ns = [1..100]
+--    mcrs <- forM ns $ \n -> do
+--      sampleMcrs <- replicateM 100 $ runNoNoise n 100
+--      return (mean sampleMcrs)
+--    return (zip ns $ map (*100) mcrs)
 
-  let xlabel = G.XLabel "Size of test set"
-      ylabel = G.YLabel "Misclassification Rate (%)"
-      title  = G.Title  "Decision Tree Demo (Restaurants)"
+--  let xlabel = G.XLabel "Size of test set"
+--      ylabel = G.YLabel "Misclassification Rate (%)"
+--      title  = G.Title  "Decision Tree Demo (Restaurants)"
 
-  G.plotList [xlabel,ylabel,title] vals
+--  G.plotList [xlabel,ylabel,title] vals
 
 --------------------------------------
 -- The decision tree in Figure 18.2 --

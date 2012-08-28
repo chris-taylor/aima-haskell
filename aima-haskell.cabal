@@ -63,13 +63,15 @@ Library
                         AI.Probability.MDP
                         AI.Probability.Example.Alarm
                         AI.Probability.Example.Grass
+                        AI.Learning.Bootstrap
                         AI.Learning.Core
+                        AI.Learning.CrossValidation
                         AI.Learning.DecisionTree
                         AI.Learning.LinearRegression
                         AI.Learning.LogisticRegression
                         AI.Learning.NeuralNetwork
+                        AI.Learning.Perceptron
                         AI.Learning.RandomForest
-                        AI.Learning.Resample
                         AI.Learning.Example.Students
                         AI.Learning.Example.Restaurant
                         AI.Test.Main

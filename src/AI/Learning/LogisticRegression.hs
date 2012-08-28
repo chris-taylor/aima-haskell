@@ -2,9 +2,8 @@ module AI.Learning.LogisticRegression where
 
 import Numeric.LinearAlgebra
 import Numeric.LinearAlgebra.Util
-import Numeric.GSL.Minimization
 
-import AI.Learning.Core (sigmoid)
+import AI.Learning.Core
 import AI.Util.Matrix
 
 -- |Multivariate logistic regression. Given a vector /y/ of target variables and
@@ -44,14 +43,9 @@ lrRegularized y x useConst lambda = lrHelper costfun theta0
 --  that returns the cost and gradient for a given vector of parameters, and
 --  the second is the initial set of parameters to use.
 lrHelper :: (Vector Double -> (Double, Vector Double)) -> Vector Double -> Vector Double
-lrHelper fun theta0 = fst $ minimizeVD VectorBFGS2 prec niter sz1 tol cost grad theta0
-    where
-        prec    = 1e-9
-        niter   = 1000
-        sz1     = 0.1
-        tol     = 0.1
-        cost    = negate . fst . fun -- negate because we call minimize
-        grad    = negate . snd . fun
+lrHelper fun theta0 = minimizeS cost grad theta0
+    where cost    = negate . fst . fun -- negate because we call minimize
+          grad    = negate . snd . fun
 
 -- |Cost function and derivative for logistic regression. This is maximized when
 --  fitting parameters for the regression.
@@ -62,7 +56,7 @@ lrLogLikelihood :: Vector Double             -- targets (y)
 lrLogLikelihood y x theta = (cost, grad)
     where
         m    = fromIntegral (rows x)    -- For computing average
-        h    = sigmoid $ x <> theta     -- Predictions for y
+        h    = sigmoid (x <> theta)     -- Predictions for y
         cost = sumVector (y * log h + (1-y) * log (1-h)) / m
         grad = (1/m) `scale` (y - h) <> x
 
@@ -76,7 +70,7 @@ lrLogLikRegularized :: Vector Double            -- targets (y)
                     -> (Double, Vector Double)  -- (value, derivative)
 lrLogLikRegularized y x useConst lambda theta = (cost, grad)
     where
-        m = fromIntegral (rows x)
+        m      = fromIntegral (rows x)
         (c,g)  = lrLogLikelihood y x theta
         theta' = if useConst then join [0, dropVector 1 theta] else theta
         cost   = c - (lambda / (2 * m)) * norm theta' ^ 2

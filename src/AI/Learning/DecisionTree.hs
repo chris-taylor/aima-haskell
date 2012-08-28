@@ -117,24 +117,8 @@ partition att as = L.foldl' fun initial as
         fun m a = M.insertWith' (++) (test att a) [a] m
         initial = mkUniversalMap (vals att) []
 
--- |Compute the entropy of a list.
---entropy :: Ord a => [a] -> Float
---entropy as = negate (entropy' probs)
---    where
---        entropy' ps = sum $ map (\p -> if p == 0 then 0 else p * log p) ps
---        probs       = map ((/len) . fromIntegral . length) $ L.group $ L.sort as
---        len         = fromIntegral (length as)
-
---entropy1 :: Ord a => [a] -> Float
---entropy1 as = entropy' probs
---    where
---        entropy' ps    = negate . sum $ map (\p -> if p == 0 then 0 else p * log p) ps
---        (len, cnts)    = L.foldl' go (0,M.empty) as
---        go (!len,!m) a = (len+1, M.insertWith' (+) a 1 m)
---        probs          = map ((/fromIntegral len) . fromIntegral) $ M.elems cnts
-
-entropy2 :: Ord a => [a] -> Float
-entropy2 as = entropy' probs
+entropy :: Ord a => [a] -> Float
+entropy as = entropy' probs
     where
         entropy' ps = negate . sum $ map (\p -> if p == 0 then 0 else p * log p) ps
         probs    = map ((/len) . fromIntegral) $ M.elems $ L.foldl' go M.empty as
@@ -144,7 +128,7 @@ entropy2 as = entropy' probs
 -- |When given a target function, this can be used as an input to the 'minSplit'
 --  routine.
 sumEntropy :: Ord b => (a -> b) -> [[a]] -> Float
-sumEntropy target as = sum $ map (entropy2 . map target) as
+sumEntropy target as = sum $ map (entropy . map target) as
 
 -------------
 -- Pruning --
@@ -166,4 +150,21 @@ prune p (Decision att i ts) =
     then Result i
     else Decision att i (fmap (prune p) ts)
 
+-------------
+-- Testing --
+-------------
 
+-- |Compute the misclassification rate (MCR) of a particular decision tree
+--  on a data set.
+mcr :: Eq b =>
+       (a -> b)     -- Classification algorithm
+    -> [a]          -- List of elements to be classified
+    -> [b]          -- List of correct classifications
+    -> Double       -- Misclassification rate
+mcr predfun as bs = 
+    let bsPred     = map predfun as
+        numCorrect = countIf id (zipWith (==) bs bsPred)
+        numTotal   = length as
+     in fromIntegral (numTotal - numCorrect) / fromIntegral numTotal
+
+predfun xtrain ytrain xtest ytest = undefined

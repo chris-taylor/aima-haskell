@@ -3,13 +3,9 @@
 module AI.Learning.LinearRegression where
 
 import Data.List (foldl')
-import Data.Packed.Matrix
-import Data.Packed.Vector
 import Numeric.LinearAlgebra
 import Numeric.LinearAlgebra.Util (ones)
-import Prelude hiding (sum)
 
-import AI.Learning.Resample
 import AI.Util.Matrix
 
 {-
@@ -83,6 +79,9 @@ data LMStats = LMStats { covBeta :: Maybe (Matrix Double)
                        , pRegression :: Maybe Double }
                        deriving (Show)
 
+type Predictor = Matrix Double
+type Response = Vector Double
+
 -- |Fit an ordinary least squares linear model to data.
 lm :: Matrix Double -> Vector Double -> LinearModel
 lm = lmWith OLS stdLMOpts
@@ -153,10 +152,10 @@ lmStats model x y =
         pReg      = Nothing
     in LMStats covBeta betaCI sst sse mse rSq tBeta pBeta fReg pReg
 
-mseEvalFun :: EvalFun
+mseEvalFun :: Response -> Response -> Double
 mseEvalFun actual predicted = mean $ (actual - predicted) ^ 2
 
-lmPredFun :: PredFun
+lmPredFun :: Predictor -> Response -> Predictor -> Response -> Double
 lmPredFun xtrain ytrain xtest ytest = mseEvalFun ytest ypred
     where
         ypred = lmPredict model xtest
