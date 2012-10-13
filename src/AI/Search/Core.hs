@@ -21,7 +21,7 @@ module AI.Search.Core (
 import Control.DeepSeq
 import Control.Monad
 import Data.IORef
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust,listToMaybe)
 import System.IO.Unsafe
 
 import qualified Data.Set as S
@@ -125,14 +125,10 @@ treeSearch :: (Problem p s a, Queue q) =>
               q (Node s a)      -- ^ Empty queue
            -> p s a             -- ^ Problem
            -> Maybe (Node s a)
-treeSearch q prob = go prob (root prob `push` q)
+treeSearch q prob  = listToMaybe $ genericSearch f q prob 
     where
-        go p fringe = if empty fringe
-            then Nothing
-            else let (node, rest) = pop fringe
-                 in if goalTest p (state node)
-                    then Just node
-                    else go p (expand prob node `extend` rest)
+        f node  closed = (expand prob node, closed)
+
 
 -- |Search through the successors of a node to find a goal. The argument
 --  @fringe@ should be an empty queue. If two paths reach the same state, use
@@ -141,20 +137,33 @@ graphSearch :: (Problem p s a, Queue q, Ord s) =>
                q (Node s a)     -- ^ Empty queue
             -> p s a            -- ^ Problem
             -> Maybe (Node s a)
-graphSearch q prob = go prob (root prob `push` q) S.empty
+graphSearch q prob = listToMaybe $ genericSearch f q prob
+    where 
+        f node closed 
+            | state node `S.member` closed  = (newQueue,closed)
+            | otherwise = (expand prob node, closed')
+                where
+                    closed' = state node `S.insert` closed 
+
+
+genericSearch :: (Queue q, Problem p s a) =>
+                       (Node s a -> S.Set a1 -> ([Node s a], S.Set a1))
+                       -> q (Node s a) -> p s a -> [(Node s a)]
+genericSearch f q prob = findFinalState  (genericSearchPath f (root prob `push` q))
+    where 
+        findFinalState = filter  (goalTest prob.state) 
+
+-- Return a (potentially infinite) list of nodes to search.
+-- Since the reult is lazy, you can break out early if you find a resut. 
+genericSearchPath :: Queue q => (a -> S.Set a1 -> ([a], S.Set a1)) -> q a -> [a]
+genericSearchPath f q  = go (q,S.empty)
     where
-        go p fringe closed = if empty fringe
-            then Nothing
-            else if goalTest p thisState
-                then Just node
-                else if thisState `S.member` closed
-                    then go p rest  closed
-                    else go p rest' closed'
-            where
-                (node,rest) = pop fringe
-                thisState   = state node
-                rest'       = expand prob node `extend` rest
-                closed'     = thisState `S.insert` closed
+    go (fringe,closed)
+            | empty fringe = []
+            | otherwise = go'  (pop fringe) closed
+    go' (node, rest) closed
+            | (new,closed') <-(f node closed) = node : go (new `extend` rest, closed')
+
 
 -----------------------
 -- Compare Searchers --
