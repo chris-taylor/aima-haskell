@@ -21,9 +21,9 @@ instance CSP Sudoku String Char where
     vars s = squares
     domains (Sudoku dom) = dom
     neighbours s = M.fromList peers
-    constraints s x xv y yv = if x `elem` neighbours s ! y
-        then xv /= yv
-        else True
+    constraints s x xv y yv = (xv /= yv) || not (x `elem` neighbours s ! y)
+        
+        
 
 cross :: [a] -> [a] -> [[a]]
 cross xs ys = [ [x,y] | x <- xs, y <- ys ]
