@@ -26,9 +26,9 @@ instance CSP MapColoringCSP String Char where
 
     neighbours (MCP nbrs _) = nbrs
 
-    constraints csp x xv y yv = if y `elem` neighbours csp ! x
-        then xv /= yv
-        else True
+    constraints csp x xv y yv =  xv /=yv || not (y `elem` neighbours csp ! x)
+        
+        
 
 -----------------------------------
 -- Map Coloring Problems in AIMA --

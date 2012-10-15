@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, TypeSynonymInstances, FlexibleInstances, BangPatterns #-}
 
 module AI.Search.CSP where
 
@@ -104,28 +104,34 @@ forwardCheck csp var val = do
 -- |Return a list of variables in the current assignment that are in conflict.
 conflictedVars :: CSP c v a => c v a -> Assignment v a -> [v]
 conflictedVars csp a =
-    [ v | v <- vars csp, numConflicts csp v (a ! v) a > 0 ]
+    [ v | v <- vars csp, hasConflicts csp v (a ! v) a ]
 
 -- |Check if an assignment is complete, i.e. there are no more viables
 --  left to assign.
 allAssigned :: CSP c v a => c v a -> Assignment v a -> Bool
 allAssigned csp assignment = M.size assignment == length (vars csp)
 
+hasConflicts :: CSP c v a => c v a -> v -> a -> Assignment v a -> Bool
+hasConflicts  csp v a  = not . M.null . M.filterWithKey conflict 
+    where
+        conflict x y = not $constraints csp v a x y
+
 -- |Return the number of conflicts that v == a has with other
 --  viables currently assigned.
 numConflicts :: CSP c v a => c v a -> v -> a -> Assignment v a -> Int
-numConflicts csp v a assignment = countIf conflict assignedVals
+numConflicts csp v a assignment = M.foldWithKey count 0 assignment
     where
-        assignedVals   = M.toList assignment
-        conflict (x,y) = not (constraints csp v a x y)
+        ok = constraints csp v a
+        count k v n  = if ok k v then n else (n+1)
+
 
 -- |The goal is to assign all vars with all constraints satisfied.
 goalTest :: CSP c v a => c v a -> Assignment v a -> Bool
 goalTest csp assignment =
     allAssigned csp assignment && all noConflicts (vars csp)
     where
-        noConflicts var = 
-            numConflicts csp var (assignment ! var) assignment == 0
+        noConflicts var = not $
+            hasConflicts csp var (assignment ! var) assignment
 
 ----------------------------------
 -- Backtracking Search for CSPs --
@@ -166,7 +172,7 @@ recursiveBacktracking csp = getAssignment >>= \assgn ->
                                 else return result
                     else go var vs
             
-            noConflicts var v a = numConflicts csp var v a == 0
+            noConflicts var v a = not $ hasConflicts csp var v a 
 
 -- |Select an unassigned variable from the list of variables in a CSP. We may
 --  optionally use the Most Constrained Variable heuristic to choose which
@@ -180,6 +186,9 @@ selectVariable vs = ifM useMcv (mostConstrained vs) (firstUnassigned vs)
 sortDomainVals :: CSP c v a => c v a -> v -> Backtracking v a [a]
 sortDomainVals csp var = ifM useLcv (leastConstraining csp var) (allValues var)
 
+
+
+
 -- |Return the most constrained variable from a problem. The idea is to speed
 --  up the search algorithm by reducing the branching factor.
 mostConstrained :: Ord v => [v] -> Backtracking v a v
@@ -187,7 +196,9 @@ mostConstrained vs = do
     dom   <- getDomain
     assgn <- getAssignment
     let unassigned = [ v | v <- vs, v `M.notMember` assgn ]
-    return (argMin unassigned $ numLegalValues dom)
+    return $! (argMin unassigned $ numLegalValues dom)
+    
+
 
 -- |Return the first unassigned variable in the problem.
 firstUnassigned :: Ord v => [v] -> Backtracking v a v
@@ -203,9 +214,11 @@ leastConstraining :: CSP c v a => c v a -> v -> Backtracking v a [a]
 leastConstraining csp var = do
     dom   <- getDomain
     assgn <- getAssignment
-    return $ L.sortBy (O.comparing $ numConf assgn) (dom ! var)
+    return . sortWith (numConf assgn)  $! (dom ! var)
     where
         numConf a val = numConflicts csp var val a
+        sortWith :: Ord b => (a -> b) -> [a] -> [a]
+        sortWith f = map snd. L.sortBy (O.comparing fst) . map (\x -> (f x, x))
 
 -- |Return a list of all possible values for a given variable, without doing
 --  any sorting.
