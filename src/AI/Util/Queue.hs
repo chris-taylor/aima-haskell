@@ -71,11 +71,18 @@ data FifoQueue a = FifoQueue [a] [a]
 instance Ord k => Queue (PriorityQueue k) where
     newQueue = undefined
     empty  (PQueue q _) = M.null q
-    pop    (PQueue q f) = (snd minAssoc,PQueue rest f)
-        where (minAssoc,rest) = M.deleteFindMin q
-    push x (PQueue q f) = PQueue (M.insert (f x) x q) f
+    pop    (PQueue q f) = (item, PQueue newPQ f)
+        where ((key, (item:items)), q') = M.deleteFindMin q
+              newPQ = if null items
+                      then q'
+                      else M.insert key items q'
+    push x (PQueue q f) = PQueue newPQ f
+        where key = (f x)
+              newPQ = case M.lookup key q of
+                      Nothing -> M.insert key [x] q
+                      Just vals -> M.insert key (x:vals) q
 
-data PriorityQueue k a = PQueue { pqueue :: M.Map k a, keyfun :: a -> k }
+data PriorityQueue k a = PQueue { pqueue :: M.Map k [a], keyfun :: a -> k }
 
 newPriorityQueue :: (a -> k) -> PriorityQueue k a
 newPriorityQueue f = PQueue M.empty f
